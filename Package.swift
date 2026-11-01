@@ -181,6 +181,11 @@ let package = Package(
 
         #if os(macOS)
         targets.append(contentsOf: [
+            .target(
+                name: "CodexBarTestBootstrap",
+                path: "Tests/CodexBarTestBootstrap",
+                publicHeadersPath: "include",
+                linkerSettings: [.linkedFramework("AppKit")]),
             .executableTarget(
                 name: "CodexBarClaudeWatchdog",
                 dependencies: [],
@@ -229,12 +234,14 @@ let package = Package(
             name: "CodexBarTests",
             dependencies: [
                 "CodexBar", "CodexBarCore", "CodexBarCLI", "CodexBarCostStoreCrashProbe", "CodexBarWidget",
+                "CodexBarTestBootstrap",
                 .product(name: "Sparkle", package: "Sparkle"),
             ],
             path: "Tests",
             exclude: [
                 "AdaptiveReplayCLITests",
                 "AdaptiveReplayKitTests",
+                "CodexBarTestBootstrap",
                 "CodexBarTests/ProviderPluginDetailsParityTests.swift",
                 "CodexBarTests/ProviderPluginExtensionParityTests.swift",
                 "CodexBarTests/ProviderPluginParityTests.swift",
@@ -251,6 +258,8 @@ let package = Package(
             linkerSettings: [
                 // XCTest's executable is three directories below its sibling framework products.
                 .unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@loader_path/../../.."]),
+                // Retain the load-time initializer even when a filtered suite never references its module.
+                .unsafeFlags(["-Xlinker", "-u", "-Xlinker", "_codexbar_test_bootstrap_applied_policy"]),
             ]))
         #endif
 

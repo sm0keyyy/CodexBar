@@ -139,6 +139,10 @@ make test
 
 `test-fast` wraps `swift test --filter` with the repository's isolated, credential-scrubbed test environment.
 Do not run live account probes or permit Keychain access for these gates.
+The macOS test bundle links `CodexBarTestBootstrap`, a test-only Objective-C load-time initializer.
+It sets `NSApplication` activation policy to `prohibited` before Swift test discovery so AppKit tests do not register Dock apps.
+`AppKitBootstrapTests` checks early policy installation and offscreen bitmap rendering. Production targets do not link this support.
+After the final test run, restart Dock once if older test processes left stale icons.
 A failed S1, S2, S3, or S5 guard means the corresponding upstream hook or mirror needs attention.
 `GroupedCostParityTests` uses sanitized recorded Pi/OMP usage and expected output from installed CodeBurn 0.9.27.
 Its explicit `CODEXBAR_GROUPED_COST_CORPUS` mode accepts only a supplied sanitized corpus and prints model/day totals.
