@@ -117,6 +117,8 @@ The fragment cache bounds retained snapshots by count and encoded byte cost.
 The manifest rename remains the atomic commit point. Corrupt artifacts rebuild from the source files.
 Existing monolithic v9 artifacts migrate on the next successful scan.
 Pricing, day windows, recursive discovery, and duplicate-entry rules remain unchanged.
+The Grok worker drains its autorelease pool before the existing malloc relief helper returns free pages to the system.
+This work stays off the main actor.
 
 `PiSessionMemoryTests` uses synthetic sessions in one directory.
 It asserts zero transcript parses and zero artifact buffers across ten unchanged refreshes.

@@ -34,18 +34,26 @@ struct PiSessionMemoryTests {
         try CostUsageClaudeFragments.$shared.withValue(CostUsageClaudeFragments()) {
             func scan(_ seconds: TimeInterval) throws -> PiSessionCostScanner.DailyReportResult {
                 try PiSessionCostScanner.loadDailyReportResultCancellable(
-                    provider: .codex, since: day, until: day, now: day.addingTimeInterval(seconds),
-                    options: options, checkCancellation: nil)
+                    provider: .codex,
+                    since: day,
+                    until: day,
+                    now: day.addingTimeInterval(seconds),
+                    options: options,
+                    checkCancellation: nil)
             }
             let first = try scan(0)
             #expect(first.isComplete)
             #expect(first.report.summary?.totalTokens == 480)
-            try PiSessionCostScanner.$sessionParseObserverForTesting.withValue({ work.parsed() }) {
-                try CostUsageClaudeFragments.$observeEncodedBytesForTesting.withValue({ work.encoded($0) }) {
-                    try CostUsageClaudeCacheIO.$readForTesting.withValue({ url, options in
+            try PiSessionCostScanner.$sessionParseObserverForTesting.withValue {
+                work.parsed()
+            } operation: {
+                try CostUsageClaudeFragments.$observeEncodedBytesForTesting.withValue {
+                    work.encoded($0)
+                } operation: {
+                    try CostUsageClaudeCacheIO.$readForTesting.withValue { url, options in
                         work.read()
                         return try? Data(contentsOf: url, options: options)
-                    }) {
+                    } operation: {
                         for seconds in 1...10 {
                             let unchanged = try scan(TimeInterval(seconds))
                             #expect(unchanged.isComplete)
