@@ -30,16 +30,19 @@ final class GrokDailyCostCache {
         let home = GrokCredentialsStore.grokHomeURL()
         self.task = Task { [weak self] in
             let result = await Task.detached(priority: .utility) {
-                Result {
-                    let since = calendar.date(byAdding: .day, value: -30, to: now) ?? now
-                    let mirrors = try PiSessionCostScanner.grokDailyReport(
-                        since: since, until: now, now: now, calendar: calendar)
-                    return try Self.scan(
-                        home: home,
-                        now: now,
-                        calendar: calendar,
-                        previousSignature: signature,
-                        mirrors: mirrors)
+                defer { MemoryPressureRelief.releaseFreeMallocPages() }
+                return autoreleasepool {
+                    Result {
+                        let since = calendar.date(byAdding: .day, value: -30, to: now) ?? now
+                        let mirrors = try PiSessionCostScanner.grokDailyReport(
+                            since: since, until: now, now: now, calendar: calendar)
+                        return try Self.scan(
+                            home: home,
+                            now: now,
+                            calendar: calendar,
+                            previousSignature: signature,
+                            mirrors: mirrors)
+                    }
                 }
             }.value
             guard let self else { return }

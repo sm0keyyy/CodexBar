@@ -155,7 +155,7 @@ struct PiNativeProofCorpus: Sendable {
         guard let data = try? Data(contentsOf: url) else { return [:] }
         return [
             "sha256": SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined(),
-            "lastScanUnixMs": PiSessionCostCacheIO.load(cacheRoot: self.cache).lastScanUnixMs,
+            "lastScanUnixMs": Double(PiSessionCostCacheIO.load(cacheRoot: self.cache).lastScanUnixMs),
         ]
     }
 

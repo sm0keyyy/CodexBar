@@ -20,7 +20,7 @@ struct PiSessionCostCacheReplacementTests {
                 inputTokens: revision, totalTokens: revision, costNanos: Int64(revision))]]]
             PiSessionCostCacheIO.save(cache: cache, cacheRoot: root, calendar: calendar)
 
-            let persisted = try JSONDecoder().decode(PiSessionCostCache.self, from: Data(contentsOf: url))
+            let persisted = try PiSessionCostCacheLinuxTests.readPersistedCache(at: url)
             #expect(persisted.lastScanUnixMs == cache.lastScanUnixMs)
             #expect(persisted.pricingKey == cache.pricingKey)
             #expect(persisted.daysByProvider == cache.daysByProvider)
@@ -29,6 +29,6 @@ struct PiSessionCostCacheReplacementTests {
         }
 
         let files = try FileManager.default.contentsOfDirectory(atPath: url.deletingLastPathComponent().path)
-        #expect(files == [url.lastPathComponent])
+        #expect(Set(files) == [url.lastPathComponent, url.lastPathComponent + ".fragments"])
     }
 }

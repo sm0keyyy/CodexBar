@@ -29,11 +29,8 @@ struct PiSessionCostCacheLinuxTests {
 
             PiSessionCostCacheIO.save(cache: cache, cacheRoot: root, calendar: calendar)
 
-            // Read the final artifact directly so load's empty-cache fallback cannot hide a failed save.
-            let data = try Data(contentsOf: url)
-            let json = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
-            #expect(json["lastScanUnixMs"] as? Int == tokens)
-            let decoded = try JSONDecoder().decode(PiSessionCostCache.self, from: data)
+            // A fresh fragment reader cannot hide a failed save behind an in-memory snapshot or empty fallback.
+            let decoded = try Self.readPersistedCache(at: url)
             for saved in [decoded, PiSessionCostCacheIO.load(cacheRoot: root)] {
                 #expect(saved.version == cache.version)
                 #expect(saved.lastScanUnixMs == cache.lastScanUnixMs)
@@ -46,7 +43,15 @@ struct PiSessionCostCacheLinuxTests {
                 #expect(saved.files.values.first?.contributions == cache.daysByProvider)
             }
             let contents = try FileManager.default.contentsOfDirectory(atPath: url.deletingLastPathComponent().path)
-            #expect(contents == [url.lastPathComponent])
+            #expect(Set(contents) == [url.lastPathComponent, url.lastPathComponent + ".fragments"])
         }
+    }
+
+    static func readPersistedCache(at url: URL) throws -> PiSessionCostCache {
+        let loaded: (PiSessionCostCache, [String: PiSessionFileUsage]) = try CostUsageClaudeFragments()
+            .load(at: url, legacy: { _ in throw CocoaError(.fileReadCorruptFile) })
+        var cache = loaded.0
+        cache.files = loaded.1
+        return cache
     }
 }

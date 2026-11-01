@@ -8,6 +8,8 @@ struct PiSessionMemoryTests {
         let env = try CostUsageTestEnvironment()
         defer { env.cleanup() }
         let day = try env.makeLocalNoon(year: 2026, month: 7, day: 10)
+        try FileManager.default.createDirectory(
+            at: env.root.appendingPathComponent("empty-omp"), withIntermediateDirectories: true)
         let options = PiSessionCostScanner.Options(
             piSessionsRoot: env.piSessionsRoot,
             ompSessionsRoot: env.root.appendingPathComponent("empty-omp"),
@@ -22,7 +24,7 @@ struct PiSessionMemoryTests {
         ]
         var files: [URL] = []
         for index in 0..<32 {
-            files.append(try env.writePiSessionFile(
+            try files.append(env.writePiSessionFile(
                 relativePath: "project/2026-07-10T10-00-00-000Z_\(index).jsonl",
                 contents: env.jsonl([
                     ["type": "session", "id": "session-\(index)"], row,
@@ -75,8 +77,13 @@ struct PiSessionMemoryTests {
         private var parses = 0
         private var encodes: [Int] = []
         private var reads = 0
-        var counts: [Int] { self.lock.withLock { [self.parses, self.encodes.count, self.reads] } }
-        var maximumEncodedBytes: Int { self.lock.withLock { self.encodes.max() ?? 0 } }
+        var counts: [Int] {
+            self.lock.withLock { [self.parses, self.encodes.count, self.reads] }
+        }
+
+        var maximumEncodedBytes: Int {
+            self.lock.withLock { self.encodes.max() ?? 0 }
+        }
 
         func parsed() { self.lock.withLock { self.parses += 1 } }
         func encoded(_ bytes: Int) { self.lock.withLock { self.encodes.append(bytes) } }
