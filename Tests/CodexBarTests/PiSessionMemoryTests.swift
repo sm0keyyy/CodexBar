@@ -4,7 +4,7 @@ import Testing
 
 struct PiSessionMemoryTests {
     @Test
-    func `unchanged refreshes allocate no artifact buffers and append rewrites only one file`() throws {
+    func `unchanged refreshes reuse file buffers and append rewrites only one file`() throws {
         let env = try CostUsageTestEnvironment()
         defer { env.cleanup() }
         let day = try env.makeLocalNoon(year: 2026, month: 7, day: 10)
@@ -31,6 +31,12 @@ struct PiSessionMemoryTests {
                 ])))
         }
         let work = Work()
+        let parsed: @Sendable () -> Void = { work.parsed() }
+        let encoded: @Sendable (Int) -> Void = { work.encoded($0) }
+        let read: @Sendable (URL, Data.ReadingOptions) -> Data? = { url, options in
+            work.read()
+            return try? Data(contentsOf: url, options: options)
+        }
         try CostUsageClaudeFragments.$shared.withValue(CostUsageClaudeFragments()) {
             func scan(_ seconds: TimeInterval) throws -> PiSessionCostScanner.DailyReportResult {
                 try PiSessionCostScanner.loadDailyReportResultCancellable(
@@ -44,16 +50,9 @@ struct PiSessionMemoryTests {
             let first = try scan(0)
             #expect(first.isComplete)
             #expect(first.report.summary?.totalTokens == 480)
-            try PiSessionCostScanner.$sessionParseObserverForTesting.withValue {
-                work.parsed()
-            } operation: {
-                try CostUsageClaudeFragments.$observeEncodedBytesForTesting.withValue {
-                    work.encoded($0)
-                } operation: {
-                    try CostUsageClaudeCacheIO.$readForTesting.withValue { url, options in
-                        work.read()
-                        return try? Data(contentsOf: url, options: options)
-                    } operation: {
+            try PiSessionCostScanner.$sessionParseObserverForTesting.withValue(parsed) {
+                try CostUsageClaudeFragments.$observeEncodedBytesForTesting.withValue(encoded) {
+                    try CostUsageClaudeCacheIO.$readForTesting.withValue(read) {
                         for seconds in 1...10 {
                             let unchanged = try scan(TimeInterval(seconds))
                             #expect(unchanged.isComplete)
@@ -78,6 +77,29 @@ struct PiSessionMemoryTests {
                 }
             }
         }
+    }
+
+    @Test
+    func `cold cache reads never decode an older monolithic artifact`() throws {
+        let env = try CostUsageTestEnvironment()
+        defer { env.cleanup() }
+        let current = PiSessionCostCacheIO.cacheFileURL(cacheRoot: env.cacheRoot)
+        let previous = current.deletingLastPathComponent().appendingPathComponent("pi-sessions-v9.json")
+        try FileManager.default.createDirectory(
+            at: previous.deletingLastPathComponent(),
+            withIntermediateDirectories: true)
+        try Data(repeating: 0x20, count: 1024 * 1024).write(to: previous)
+        let reader: @Sendable (URL, Data.ReadingOptions) -> Data? = { url, options in
+            #expect(url != previous)
+            return try? Data(contentsOf: url, options: options)
+        }
+        let cache = CostUsageClaudeCacheIO.$readForTesting.withValue(reader) {
+            PiSessionCostCacheIO.load(cacheRoot: env.cacheRoot)
+        }
+        #expect(cache.version == 10)
+        #expect(cache.files.isEmpty)
+        #expect(!FileManager.default.fileExists(atPath: current.path))
+        #expect(try FileManager.default.attributesOfItem(atPath: previous.path)[.size] as? Int == 1024 * 1024)
     }
 
     private final class Work: @unchecked Sendable {

@@ -2,9 +2,8 @@ import Foundation
 
 enum PiSessionCostCacheIO {
     /// Artifact schema version. Pricing changes are tracked separately by `pricingKey`.
-    /// v9 invalidates artifacts produced before stricter root and parser
-    /// provenance checks were introduced.
-    private static let artifactVersion = 9
+    /// v10 uses source-file shards and rebuilds older monoliths through the streaming scanner.
+    private static let artifactVersion = 10
 
     private static func defaultCacheRoot() -> URL {
         let root = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
@@ -20,12 +19,9 @@ enum PiSessionCostCacheIO {
 
     static func load(cacheRoot: URL? = nil) -> PiSessionCostCache {
         let url = self.cacheFileURL(cacheRoot: cacheRoot)
-        guard let loaded = try? CostUsageClaudeFragments.shared.load(at: url, legacy: { data in
-            var cache = try JSONDecoder().decode(PiSessionCostCache.self, from: data)
-            let files = cache.files
-            cache.files = [:]
-            return (cache, files)
-        }) else { return PiSessionCostCache(version: Self.artifactVersion) }
+        guard let loaded: (PiSessionCostCache, [String: PiSessionFileUsage]) = try? CostUsageClaudeFragments.shared
+            .load(at: url, legacy: { _ in throw CocoaError(.fileReadCorruptFile) })
+        else { return PiSessionCostCache(version: Self.artifactVersion) }
         var cache: PiSessionCostCache = loaded.0
         guard cache.version == Self.artifactVersion else { return PiSessionCostCache(version: Self.artifactVersion) }
         cache.files = loaded.1
@@ -57,7 +53,7 @@ struct PiSessionCostCache: Codable {
     var daysByProvider: [String: [String: [String: PiPackedUsage]]] = [:]
     var files: [String: PiSessionFileUsage] = [:]
 
-    init(version: Int = 9) {
+    init(version: Int = 10) {
         self.version = version
     }
 }

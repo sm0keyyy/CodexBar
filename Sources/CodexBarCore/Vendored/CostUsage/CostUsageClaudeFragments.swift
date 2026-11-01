@@ -1,7 +1,7 @@
 import Crypto
 import Foundation
 
-/// Immutable project shards; the manifest rename is the only commit point.
+/// Immutable cache shards. The manifest rename is the only commit point.
 final class CostUsageClaudeFragments: @unchecked Sendable {
     #if DEBUG
     @TaskLocal static var shared = CostUsageClaudeFragments()
