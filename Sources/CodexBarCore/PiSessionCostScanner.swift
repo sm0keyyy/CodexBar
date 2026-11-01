@@ -19,6 +19,7 @@ private final class PiSessionISO8601FormatterBox: @unchecked Sendable {
 // swiftlint:disable:next type_body_length
 package enum PiSessionCostScanner {
     @TaskLocal static var sessionParseObserverForTesting: (@Sendable () -> Void)?
+    @TaskLocal static var entryArchiveDecodeObserverForTesting: (@Sendable () -> Void)?
 
     struct Options {
         var piSessionsRoot: URL?
@@ -187,7 +188,7 @@ package enum PiSessionCostScanner {
                 scopeFingerprint: nil)
         }
 
-        let range = CostUsageScanner.CostUsageDayRange(
+        var range = CostUsageScanner.CostUsageDayRange(
             since: since,
             until: until,
             calendar: options.calendar)
@@ -202,9 +203,12 @@ package enum PiSessionCostScanner {
             options: options,
             previousSessionRootsFingerprint: cache.sessionRootsFingerprint)
         let sessionRootsFingerprint = self.sessionRootsFingerprint(roots)
-        let windowExpanded = self.requestedWindowExpandsCache(range: range, cache: cache)
         let pricingChanged = cache.pricingKey != pricingContext.pricingKey
         let sessionRootsChanged = cache.sessionRootsFingerprint != sessionRootsFingerprint
+        if !sessionRootsChanged, let since = cache.scanSinceKey, let until = cache.scanUntilKey {
+            range = range.retainingScanWindow(since: since, until: until)
+        }
+        let windowExpanded = self.requestedWindowExpandsCache(range: range, cache: cache)
         let invalidCache = cache.files.values.contains { $0.fileIdentity == nil }
             || self.checkedReports(cache: cache, range: range) == nil
         let cacheBeforeScan = cache
@@ -807,8 +811,8 @@ package enum PiSessionCostScanner {
                       existing: cached.unkeyedContributions,
                       delta: delta.unkeyedContributions)
             else { return false }
-            let mergedEntryUsages = cached.entryUsages.merging(delta.entryUsages) { _, appended in appended }
-            storeFileUsage(PiSessionFileUsage(
+            let mergedEntryUsages = try cached.entryUsages.merging(delta.entryUsages) { _, appended in appended }
+            try storeFileUsage(PiSessionFileUsage(
                 mtimeUnixMs: mtimeMs,
                 size: size,
                 parsedBytes: delta.parsedBytes,
@@ -832,7 +836,7 @@ package enum PiSessionCostScanner {
             checkCancellation: context.checkCancellation)
         guard parsed.isComplete, self.sessionFileMetadata(at: fileURL) == metadata else { return false }
 
-        storeFileUsage(PiSessionFileUsage(
+        try storeFileUsage(PiSessionFileUsage(
             mtimeUnixMs: mtimeMs,
             size: size,
             parsedBytes: parsed.parsedBytes,
@@ -1049,6 +1053,12 @@ package enum PiSessionCostScanner {
     {
         var seenEntriesBySessionID: [String: Set<String>] = [:]
         var days: [String: [String: [String: PiPackedUsage]]] = [:]
+        var sessionFileCounts: [String: Int] = [:]
+        for file in files {
+            if let sessionID = cache.files[file.url.path]?.sessionID {
+                sessionFileCounts[sessionID, default: 0] += 1
+            }
+        }
 
         for file in files {
             try checkCancellation?()
@@ -1063,10 +1073,18 @@ package enum PiSessionCostScanner {
             guard self.applyContributions(daysByProvider: &days, contributions: usage.unkeyedContributions) else {
                 return false
             }
+            if sessionFileCounts[sessionID] == 1 {
+                guard self.applyContributions(daysByProvider: &days, contributions: usage.entryArchive.contributions)
+                else {
+                    return false
+                }
+                continue
+            }
 
             var seenEntries = seenEntriesBySessionID[sessionID] ?? []
-            for entryID in usage.entryUsages.keys.sorted() where seenEntries.insert(entryID).inserted {
-                guard let entryUsage = usage.entryUsages[entryID] else { continue }
+            let entries = try usage.entryUsages
+            for entryID in entries.keys.sorted() where seenEntries.insert(entryID).inserted {
+                guard let entryUsage = entries[entryID] else { continue }
                 guard self.applyContributions(daysByProvider: &days, contributions: [
                     entryUsage.providerRawValue: [entryUsage.dayKey: [entryUsage.modelName: entryUsage.usage]],
                 ]) else { return false }

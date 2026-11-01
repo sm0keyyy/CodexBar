@@ -636,7 +636,7 @@ struct PiSessionCostScannerTests {
                 ],
             ],
         ]
-        let oldFileUsage = PiSessionFileUsage(
+        let oldFileUsage = try PiSessionFileUsage(
             mtimeUnixMs: Int64(mtime.timeIntervalSince1970 * 1000),
             size: size,
             parsedBytes: size,
@@ -675,8 +675,8 @@ struct PiSessionCostScannerTests {
         #expect(FileManager.default.fileExists(atPath: newCacheURL.path))
         let newCache = PiSessionCostCacheIO.load(cacheRoot: env.cacheRoot)
         let rebuilt = newCache.daysByProvider[UsageProvider.codex.rawValue]?[dayKey]?[model]
-        #expect(newCacheURL.lastPathComponent == "pi-sessions-v10.json")
-        #expect(newCache.version == 10)
+        #expect(newCacheURL.lastPathComponent == "pi-sessions-v11.json")
+        #expect(newCache.version == 11)
         #expect(rebuilt?.usageSampleCount == 1)
         #expect(rebuilt?.costSampleCount == 1)
         #expect(rebuilt?.costNanos == Int64((expectedCost * 1_000_000_000).rounded()))
@@ -750,7 +750,7 @@ struct PiSessionCostScannerTests {
                 ],
             ],
         ]
-        let oldFileUsage = PiSessionFileUsage(
+        let oldFileUsage = try PiSessionFileUsage(
             mtimeUnixMs: Int64(mtime.timeIntervalSince1970 * 1000),
             size: size,
             parsedBytes: size,
@@ -786,7 +786,7 @@ struct PiSessionCostScannerTests {
 
         let newCache = PiSessionCostCacheIO.load(cacheRoot: env.cacheRoot)
         let rebuilt = newCache.daysByProvider[UsageProvider.codex.rawValue]?[dayKey]?[model]
-        #expect(newCache.version == 10)
+        #expect(newCache.version == 11)
         #expect(rebuilt?.costNanos == Int64((expectedCost * 1_000_000_000).rounded()))
     }
 }
@@ -1044,7 +1044,8 @@ extension PiSessionCostScannerTests {
         let cache = PiSessionCostCacheIO.load(cacheRoot: env.cacheRoot)
         #expect(cache.files.values.count == 2)
         #expect(cache.files.values.allSatisfy { $0.sessionID == "shared-session" })
-        #expect(cache.files.values.flatMap(\.entryUsages.keys).count == 4)
+        let entryCounts = try cache.files.values.map { try $0.entryUsages.count }
+        #expect(entryCounts.reduce(0, +) == 4)
     }
 
     @Test(arguments: [false, true])

@@ -103,7 +103,9 @@ struct PiSessionCostCompatibilityTests {
             let adopted = PiSessionCostCacheIO.load(cacheRoot: env.cacheRoot)
             #expect(adopted.pricingKey == currentKey)
             #expect(adopted.files.mapValues(\.parsedBytes) == predecessor.files.mapValues(\.parsedBytes))
-            #expect(adopted.files.mapValues(\.entryUsages) == predecessor.files.mapValues(\.entryUsages))
+            let adoptedEntries = try adopted.files.mapValues { try $0.entryUsages }
+            let predecessorEntries = try predecessor.files.mapValues { try $0.entryUsages }
+            #expect(adoptedEntries == predecessorEntries)
             #expect(adopted.daysByProvider == predecessor.daysByProvider)
             #expect(adopted.files.mapValues(\.contributions) == predecessor.files.mapValues(\.contributions))
             for (formula, fingerprint) in [(1, "none"), (2, "changed-custom-rates")] {

@@ -87,10 +87,12 @@ final class CostUsageClaudeFragments: @unchecked Sendable {
                               at: Self.directory(at: url).appendingPathComponent(reference + ".json"),
                               options: .mappedIfSafe), shard.count == descriptor.bytes, Self.digest(shard) == reference
                     else { throw CocoaError(.fileReadCorruptFile) }
-                    let decoded = try decoder.decode([String: Value].self, from: shard)
-                    for (path, value) in decoded {
-                        guard values.updateValue(value, forKey: path) == nil else {
-                            throw CocoaError(.fileReadCorruptFile)
+                    try autoreleasepool {
+                        let decoded = try decoder.decode([String: Value].self, from: shard)
+                        for (path, value) in decoded {
+                            guard values.updateValue(value, forKey: path) == nil else {
+                                throw CocoaError(.fileReadCorruptFile)
+                            }
                         }
                     }
                 }
@@ -109,22 +111,37 @@ final class CostUsageClaudeFragments: @unchecked Sendable {
         }
     }
 
-    func save<Value: Codable & Equatable>(
-        header: some Encodable,
+    func save<Header: Encodable, Value: Codable & Equatable>(
+        header: Header,
         values: [String: Value],
         at url: URL,
         contentID: UUID? = nil,
         shardByFile: Bool = false,
+        unchangedHeader: ((Header, Header) -> Bool)? = nil,
         checkCancellation: CostUsageScanner.CancellationCheck? = nil) throws -> CostUsageClaudeFileStamp?
     {
         try self.lock.withLock {
             try Self.withFileLock(at: url) {
                 try checkCancellation?()
-                let encoder = JSONEncoder()
-                encoder.outputFormatting = [.sortedKeys]
                 let previous = self.entries.last { $0.url == url }?.snapshot
                 let current = previous?.stamp == CostUsageClaudeFileStamp.read(at: url) ? previous : nil
                 let oldValues = current?.values as? [String: Value] ?? [:]
+                if let current, let previousHeader = current.header as? Header,
+                   unchangedHeader?(previousHeader, header) == true,
+                   oldValues.count == values.count,
+                   values.allSatisfy({ path, value in
+                       guard let index = oldValues.index(forKey: path) else { return false }
+                       return oldValues[index].key.utf8.elementsEqual(path.utf8)
+                           && oldValues[index].value == value
+                   })
+                {
+                    self.remember(url, Snapshot(
+                        stamp: current.stamp, manifest: current.manifest,
+                        values: values, header: header, contentID: contentID))
+                    return current.stamp
+                }
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = [.sortedKeys]
                 var groups: [Data: [String]] = [:]
                 var oldCounts: [Data: Int] = [:]
                 func parent(_ path: String) -> Data {

@@ -20,7 +20,7 @@ struct PiSessionCostCacheLinuxTests {
             cache.daysByProvider = ["codex": ["2026-08-20": [
                 "gpt-5.4": PiPackedUsage(inputTokens: tokens, totalTokens: tokens),
             ]]]
-            cache.files = [root.appendingPathComponent("session.jsonl").path: PiSessionFileUsage(
+            cache.files = try [root.appendingPathComponent("session.jsonl").path: PiSessionFileUsage(
                 mtimeUnixMs: Int64(tokens),
                 size: Int64(tokens),
                 parsedBytes: Int64(tokens),

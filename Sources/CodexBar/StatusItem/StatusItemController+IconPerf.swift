@@ -46,6 +46,9 @@ extension StatusItemController {
     }
 
     func noteIconPerfRender(skipped: Bool) {
+        if !skipped, self.settings.isVerboseLoggingEnabled {
+            self.menuLogger.verbose("[perf] status image redraw")
+        }
         guard self.iconPerfUpdatePassActive else { return }
         if skipped {
             self.iconPerfRefreshCycleMetrics?.skippedCalls += 1
