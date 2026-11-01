@@ -26,8 +26,18 @@ enum GroupedProviderIconPlan {
             if let window = extra.window.measured { windows.append(window) }
         }
         windows.removeAll { !$0.usedPercent.isFinite }
-        windows.sort { ($0.windowMinutes ?? 0) < ($1.windowMinutes ?? 0) }
-        return Quota(shortest: windows.first, longest: windows.count > 1 ? windows.last : nil)
+        guard let first = windows.first else { return Quota(shortest: nil, longest: nil) }
+        var shortest = first
+        var longest = first
+        if let secondary = snapshot.secondary?.measured, secondary.usedPercent.isFinite {
+            longest = secondary
+        }
+        // Equal-duration model-specific lanes must not replace the authoritative provider windows.
+        for window in windows {
+            if (window.windowMinutes ?? 0) < (shortest.windowMinutes ?? 0) { shortest = window }
+            if (window.windowMinutes ?? 0) > (longest.windowMinutes ?? 0) { longest = window }
+        }
+        return Quota(shortest: shortest, longest: windows.count > 1 ? longest : nil)
     }
 }
 

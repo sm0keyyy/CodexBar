@@ -59,6 +59,28 @@ struct GroupedProviderIconPlanTests {
         #expect(extra.longest?.windowMinutes == 43200)
     }
 
+    @Test func `authoritative weekly lane wins ties against full model specific weekly lanes`() {
+        func window(_ remaining: Double, _ minutes: Int) -> RateWindow {
+            RateWindow(
+                usedPercent: 100 - remaining, windowMinutes: minutes, resetsAt: nil, resetDescription: nil)
+        }
+        let session = window(95, 300)
+        let weekly = window(62, 10080)
+        let alternative = window(100, 10080)
+        let quota = GroupedProviderIconPlan.quota(snapshot: UsageSnapshot(
+            primary: session,
+            secondary: weekly,
+            tertiary: alternative,
+            extraRateWindows: [NamedRateWindow(id: "extra-weekly", title: "Weekly", window: alternative)],
+            updatedAt: Date()))
+        #expect(quota.shortest == session)
+        #expect(quota.longest == weekly)
+        let samePeriod = GroupedProviderIconPlan.quota(snapshot: UsageSnapshot(
+            primary: weekly, secondary: alternative, updatedAt: Date()))
+        #expect(samePeriod.shortest == weekly)
+        #expect(samePeriod.longest == alternative)
+    }
+
     @Test func `warning thresholds use worst active window without notification state`() {
         #expect(GroupedTileWarning.level(windows: [(10, [0, 0])]) == .none)
         #expect(GroupedTileWarning.level(windows: [(45, [50, 20])]) == .amber)

@@ -122,6 +122,65 @@ struct GroupedProviderIconComposerTests {
         #expect(unknown.isTemplate)
     }
 
+    @Test func `Claude weekly62 percent remains62 percent of the inner pill despite full alternative caps`() throws {
+        func window(_ remaining: Double, _ minutes: Int) -> RateWindow {
+            RateWindow(
+                usedPercent: 100 - remaining, windowMinutes: minutes, resetsAt: nil, resetDescription: nil)
+        }
+        let quota = GroupedProviderIconPlan.quota(snapshot: UsageSnapshot(
+            primary: window(95, 300),
+            secondary: window(62, 10080),
+            tertiary: window(100, 10080),
+            extraRateWindows: [
+                NamedRateWindow(id: "extra-weekly", title: "Weekly", window: window(100, 10080)),
+            ],
+            updatedAt: Date()))
+        #expect(quota.shortest?.remainingPercent == 95)
+        #expect(quota.longest?.remainingPercent == 62)
+        let accent = ProviderDescriptorRegistry.descriptor(for: .claude).branding.color
+        let color = NSColor(srgbRed: accent.red, green: accent.green, blue: accent.blue, alpha: 1)
+        let week = GroupedProviderIconComposer.lab(color)
+        let short = GroupedProviderIconComposer.lab(GroupedProviderIconComposer.sessionColor(for: color))
+        var measurements: [[String: Any]] = []
+        for name in [NSAppearance.Name.aqua, .darkAqua] {
+            let appearance = try #require(NSAppearance(named: name))
+            var rendered: NSBitmapImageRep?
+            appearance.performAsCurrentDrawingAppearance {
+                rendered = GroupedProviderIconComposer.rasterize(GroupedProviderIconComposer.pill(
+                    primary: quota.shortest?.remainingPercent,
+                    secondary: quota.longest?.remainingPercent,
+                    color: color,
+                    stale: false))
+            }
+            let bitmap = try #require(rendered)
+            let track = try GroupedProviderIconComposer.lab(#require(bitmap.colorAt(x: 42, y: 20)))
+            func ratio(row: Int, fill: (l: Double, a: Double, b: Double)) throws -> Double {
+                var filled = 0
+                for x in 1..<47 {
+                    let pixel = try GroupedProviderIconComposer.lab(#require(bitmap.colorAt(x: x, y: row)))
+                    guard GroupedProviderIconComposer.deltaE(pixel, fill)
+                        < GroupedProviderIconComposer.deltaE(pixel, track) else { break }
+                    filled += 1
+                }
+                return Double(filled) / 46
+            }
+            let weeklyRatio = try ratio(row: 20, fill: week)
+            let sessionRatio = try ratio(row: 16, fill: short)
+            let weeklyTrack = GroupedProviderIconComposer.deltaE(week, track)
+            let sessionTrack = GroupedProviderIconComposer.deltaE(short, track)
+            #expect(abs(weeklyRatio - 0.62) <= 1.0 / 46)
+            #expect(abs(sessionRatio - 0.95) <= 1.0 / 46)
+            #expect(weeklyTrack >= 15)
+            #expect(sessionTrack >= 15)
+            measurements.append([
+                "appearance": name.rawValue, "weeklyRatio": weeklyRatio, "sessionRatio": sessionRatio,
+                "weeklyTrack": weeklyTrack, "sessionTrack": sessionTrack,
+            ])
+        }
+        let json = try JSONSerialization.data(withJSONObject: measurements, options: [.sortedKeys])
+        try print("GROUPED_PILL_WEEKLY_WIDTH_METRICS \(#require(String(bytes: json, encoding: .utf8)))")
+    }
+
     @Test func `perceptual color distance matches published CIEDE2000 reference pairs`() {
         #expect(abs(GroupedProviderIconComposer.deltaE((50, 2.6772, -79.7751), (50, 0, -82.7485)) - 2.0425) < 0.0001)
         #expect(abs(GroupedProviderIconComposer.deltaE((50, 3.1571, -77.2803), (50, 0, -82.7485)) - 2.8615) < 0.0001)
@@ -154,8 +213,8 @@ struct GroupedProviderIconComposerTests {
                         let track = GroupedProviderIconComposer.lab(empty)
                         let sessionTrack = GroupedProviderIconComposer.deltaE(short, track)
                         let weeklyTrack = GroupedProviderIconComposer.deltaE(week, track)
-                        #expect(sessionTrack > 5)
-                        #expect(weeklyTrack > 5)
+                        #expect(sessionTrack >= 15)
+                        #expect(weeklyTrack >= 15)
                         measurements.append([
                             "provider": provider.rawValue, "appearance": name.rawValue,
                             "deltaL": deltaL, "deltaE2000": deltaE,

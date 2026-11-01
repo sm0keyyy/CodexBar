@@ -23,14 +23,17 @@ The tooltip retains both exact percentages even when cost tracking is disabled.
 The weekly fill keeps the exact provider brand color, including Claude.
 The session fill derives from that color: lighter and less saturated when feasible, otherwise darker and less saturated.
 Tests require absolute CIELAB lightness separation of at least 20 and CIEDE2000 distance of at least 15 for every palette color.
-They check Aqua and Dark Aqua appearances and separation from both empty tracks.
+They check Aqua and Dark Aqua appearances and require both fill-to-track CIEDE2000 distances to be at least 15.
 The worst selected window supplies the existing amber/red warning tint for the whole pill.
 Stale, highlighted, and increased-contrast states retain their native treatment.
 The 111-provider palette run checks both appearances (222 measurements).
-Its minimum absolute ΔL* is 20.9828, minimum ΔE2000 is 23.0995, and minimum fill-to-track ΔE2000 is 12.5842.
+Its minimum absolute ΔL* is 20.9828, minimum fill ΔE2000 is 23.0995, and minimum fill-to-track ΔE2000 is 21.0304.
 For Codex, Claude, and Grok, the respective (ΔL*, ΔE2000) pairs are (32.4429, 27.8406), (34.4929, 31.1060), and (34.5000, 31.3325).
 Both appearances produce the same opaque-fill measurements.
 ElevenLabs, Windsurf, Codebuff, Hugging Face, and Vercel use the approved darker-session alternative because their brand fills are too light.
+Equal-duration alternatives retain the authoritative primary/secondary windows instead of replacing the weekly value with an appended model-specific quota.
+The weekly-62% regression measures 28 solid filled pixels across a 46-pixel inner width, within one device pixel of 62%.
+Empty tracks maximize their minimum CIEDE2000 distance from both fills over five neutral candidates.
 
 ## Daily cost and budget
 

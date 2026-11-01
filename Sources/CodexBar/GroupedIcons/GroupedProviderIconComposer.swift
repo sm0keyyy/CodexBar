@@ -67,8 +67,9 @@ enum GroupedProviderIconComposer {
     static func pill(primary: Double?, secondary: Double?, color: NSColor?, stale: Bool) -> NSImage {
         let weekly = color ?? .black
         let session = color != nil && secondary != nil ? self.sessionColor(for: weekly) : weekly
-        let track = NSColor(white: color != nil && self.lab(weekly).l > 50 ? 0.12 : 0.6, alpha: 1)
+        let track = color == nil ? NSColor.black : self.trackColor(weekly: weekly, session: session)
         let rect = self.pillRect
+        let fillRect = rect.insetBy(dx: 0.5, dy: 0)
         let halfHeight = (rect.height - 0.5) / 2
         let image = NSImage(size: self.tileSize, flipped: false) { _ in
             NSGraphicsContext.saveGraphicsState()
@@ -83,13 +84,17 @@ enum GroupedProviderIconComposer {
                 weekly.withAlphaComponent(stale ? 0.45 : 1).setFill()
                 if split { session.withAlphaComponent(stale ? 0.45 : 1).setFill() }
                 NSRect(
-                    x: 0,
+                    x: fillRect.minX,
                     y: split ? rect.midY + 0.25 : rect.minY,
-                    width: rect.width * fraction(primary),
+                    width: fillRect.width * fraction(primary),
                     height: split ? halfHeight : rect.height).fill()
                 if let secondary {
                     weekly.withAlphaComponent(stale ? 0.45 : 1).setFill()
-                    NSRect(x: 0, y: rect.minY, width: rect.width * fraction(secondary), height: halfHeight).fill()
+                    NSRect(
+                        x: fillRect.minX,
+                        y: rect.minY,
+                        width: fillRect.width * fraction(secondary),
+                        height: halfHeight).fill()
                 }
             }
             weekly.withAlphaComponent(stale ? 0.45 : 1).setStroke()
@@ -112,6 +117,22 @@ enum GroupedProviderIconComposer {
         }
         // Bright palettes cannot gain enough lightness; retain their hue in a darker neutral blend.
         return weekly.blended(withFraction: 0.85, of: NSColor(white: 0.12, alpha: 1))!
+    }
+
+    static func trackColor(weekly: NSColor, session: NSColor) -> NSColor {
+        let week = self.lab(weekly), short = self.lab(session)
+        var selected = NSColor.black
+        var separation = -Double.infinity
+        for component in stride(from: 0.0, through: 1.0, by: 0.25) {
+            let candidate = NSColor(srgbRed: component, green: component, blue: component, alpha: 1)
+            let measured = self.lab(candidate)
+            let distance = min(self.deltaE(week, measured), self.deltaE(short, measured))
+            if distance > separation {
+                selected = candidate
+                separation = distance
+            }
+        }
+        return selected
     }
 
     static func lab(_ color: NSColor) -> (l: Double, a: Double, b: Double) {
