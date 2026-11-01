@@ -17,7 +17,7 @@ private final class PiSessionISO8601FormatterBox: @unchecked Sendable {
 }
 
 // swiftlint:disable:next type_body_length
-enum PiSessionCostScanner {
+package enum PiSessionCostScanner {
     @TaskLocal static var sessionParseObserverForTesting: (@Sendable () -> Void)?
 
     struct Options {
@@ -103,11 +103,29 @@ enum PiSessionCostScanner {
 
     static let costScale = 1_000_000_000.0
     /// Bump for Pi-only cost formula changes not represented by the parser or pricing fingerprints.
-    private static let costFormulaVersion = 5
+    private static let costFormulaVersion = 6
     private static let maxLineBytes = 16 * 1024 * 1024
     private static let sessionStartFilenameRegex = try? NSRegularExpression(
         pattern: "^(\\d{4}-\\d{2}-\\d{2})T(\\d{2})-(\\d{2})-(\\d{2})-(\\d{3})Z_")
     private static let isoFormatterBox = PiSessionISO8601FormatterBox()
+
+    package static func grokDailyReport(
+        since: Date,
+        until: Date,
+        now: Date,
+        calendar: Calendar) throws -> CostUsageDailyReport
+    {
+        // Provider-specific by design: the grouped Grok cache reuses the xAI mirror without native log overlap.
+        let result = try self.loadDailyReportResultCancellable(
+            provider: .grok,
+            since: since,
+            until: until,
+            now: now,
+            options: Options(calendar: calendar),
+            checkCancellation: nil)
+        guard result.isComplete else { throw CocoaError(.fileReadUnknown) }
+        return result.report
+    }
 
     static func loadDailyReport(
         provider: UsageProvider,
@@ -161,7 +179,7 @@ enum PiSessionCostScanner {
         checkCancellation: CostUsageScanner.CancellationCheck?) throws -> DailyReportResult
     {
         // Provider-specific by design: Pi exposes native vendor mirrors and its standalone backend history.
-        guard provider == .codex || provider == .claude || provider == .pi else {
+        guard provider == .codex || provider == .claude || provider == .grok || provider == .pi else {
             return DailyReportResult(
                 report: CostUsageDailyReport(data: [], summary: nil),
                 isComplete: true,
@@ -310,7 +328,7 @@ enum PiSessionCostScanner {
                 scopeFingerprint: cache.sessionRootsFingerprint)
         }
         return DailyReportResult(
-            report: provider == .codex ? reports.codex : reports.claude,
+            report: provider == .grok ? reports.grok : provider == .codex ? reports.codex : reports.claude,
             isComplete: scanIsComplete,
             lastScanAt: lastScanAt,
             scopeFingerprint: cache.sessionRootsFingerprint)
@@ -351,7 +369,7 @@ enum PiSessionCostScanner {
         allowEstablishedEmpty: Bool = false) -> CachedDailyReportResult?
     {
         // Provider-specific by design: cached Pi history includes native mirrors and standalone backend history.
-        guard provider == .codex || provider == .claude || provider == .pi else { return nil }
+        guard provider == .codex || provider == .claude || provider == .grok || provider == .pi else { return nil }
 
         let range = CostUsageScanner.CostUsageDayRange(since: since, until: until, calendar: calendar)
         let cache = PiSessionCostCacheIO.load(cacheRoot: cacheRoot)
@@ -380,7 +398,7 @@ enum PiSessionCostScanner {
         let report = if provider == .pi {
             reports.pi
         } else {
-            provider == .codex ? reports.codex : reports.claude
+            provider == .grok ? reports.grok : provider == .codex ? reports.codex : reports.claude
         }
         guard allowEstablishedEmpty || !report.data.isEmpty else { return nil }
         let lastScanAt = cache.lastScanUnixMs > 0
@@ -588,7 +606,7 @@ enum PiSessionCostScanner {
     /// Returns the root scope represented by a Pi scanner configuration. Cached
     /// reads use this to reject a report produced for a different live or
     /// configured project root before publishing it.
-    package static func scopeFingerprint(options: Options) -> String {
+    static func scopeFingerprint(options: Options) -> String {
         let cache = PiSessionCostCacheIO.load(cacheRoot: options.cacheRoot)
         return self.scopeFingerprint(
             options: options,
@@ -915,8 +933,14 @@ enum PiSessionCostScanner {
                             return
                         }
 
-                        guard type == "message", let message = object["message"] as? [String: Any] else { return }
-                        guard (message["role"] as? String) == "assistant" else { return }
+                        let message: [String: Any]
+                        if type == "model_usage" {
+                            message = object
+                        } else {
+                            guard type == "message", let value = object["message"] as? [String: Any],
+                                  value["role"] as? String == "assistant" else { return }
+                            message = value
+                        }
 
                         let identity = self.resolveAssistantIdentity(
                             entry: object,
@@ -937,6 +961,9 @@ enum PiSessionCostScanner {
                                 pricingDate: date,
                                 pricingContext: pricingContext)
                             {
+                                // Keep measured zero evidence; skip cache-only assistant responses as CodeBurn does.
+                                guard usage.totalTokens == 0 || usage.inputTokens > 0 || usage.outputTokens > 0
+                                    || (type == "model_usage" && usage.cacheReadTokens > 0) else { return }
                                 add(
                                     provider: identity.provider,
                                     dayKey: dayKey,
@@ -1127,8 +1154,8 @@ enum PiSessionCostScanner {
     }
 
     private static func timestampDate(entry: [String: Any], message: [String: Any]) -> Date? {
-        self.parseTimestampValue(message["timestamp"])
-            ?? self.parseTimestampValue(entry["timestamp"])
+        self.parseTimestampValue(entry["timestamp"])
+            ?? self.parseTimestampValue(message["timestamp"])
     }
 
     private static func parseTimestampValue(_ value: Any?) -> Date? {
@@ -1215,13 +1242,22 @@ enum PiSessionCostScanner {
             cacheWriteTokens: cacheWrite,
             outputTokens: output,
             totalTokens: totalTokens)
-        let costUSD = totalTokens == derivedTotal ? self.computedCostUSD(
-            provider: provider,
-            modelName: modelName,
-            usage: rawUsage,
-            cacheWrite1h: cacheWrite1h,
-            pricingDate: pricingDate,
-            pricingContext: pricingContext) : nil
+        let reported = (usage["cost"] as? [String: Any])?["total"] as? NSNumber
+        let recordedCost = reported.flatMap { value -> Double? in
+            guard CFGetTypeID(value) != CFBooleanGetTypeID(),
+                  value.doubleValue.isFinite, value.doubleValue > 0 else { return nil }
+            return value.doubleValue
+        }
+        // Provider-specific by design: Claude/Codex preserve recorded USD; Grok uses the official tariff.
+        let preservesRecordedCost = provider == .claude || provider == .codex
+        let costUSD = preservesRecordedCost && recordedCost != nil ? recordedCost : totalTokens == derivedTotal
+            ? self.computedCostUSD(
+                provider: provider,
+                modelName: modelName,
+                usage: rawUsage,
+                cacheWrite1h: cacheWrite1h,
+                pricingDate: pricingDate,
+                pricingContext: pricingContext) : nil
         let costNanos = costUSD.flatMap { value -> Int64? in
             guard value.isFinite, value >= 0 else { return nil }
             return Int64(exactly: (value * self.costScale).rounded())
@@ -1270,6 +1306,14 @@ enum PiSessionCostScanner {
                 pricingDate: pricingDate,
                 modelsDevCatalog: pricingContext?.catalog,
                 modelsDevCacheRoot: pricingContext?.cacheRoot)
+        case .grok:
+            return GroupedCostPriceTable.cost(
+                model: modelName,
+                tokens: .init(
+                    fresh: Double(usage.inputTokens),
+                    output: Double(usage.outputTokens),
+                    cacheRead: Double(usage.cacheReadTokens),
+                    cacheCreation: Double(usage.cacheWriteTokens)))
         // Provider-specific by design: Bedrock stays in Pi and must match its full regional catalog ID.
         case .pi:
             guard let pricing = pricingContext?.catalog?.pricing(
@@ -1313,6 +1357,8 @@ extension PiSessionCostScanner {
             .codex
         case "anthropic":
             .claude
+        case "xai", "xai-oauth":
+            .grok
         case "amazon-bedrock":
             .pi
         default:

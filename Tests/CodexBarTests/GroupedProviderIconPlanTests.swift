@@ -1,4 +1,5 @@
 import CodexBarCore
+import Foundation
 import Testing
 @testable import CodexBar
 
@@ -18,6 +19,44 @@ struct GroupedProviderIconPlanTests {
             enabled: true,
             shouldMergeIcons: true,
             providers: [plugin] + many.map(\.instanceID)) == Array(many.prefix(6)))
+    }
+
+    @Test func `quota selects shortest and longest measured windows and keeps one weekly lane whole`() {
+        func window(_ used: Double, _ minutes: Int, synthetic: Bool = false) -> RateWindow {
+            RateWindow(
+                usedPercent: used,
+                windowMinutes: minutes,
+                resetsAt: nil,
+                resetDescription: nil,
+                isSyntheticPlaceholder: synthetic)
+        }
+        let weekly = window(25, 10080)
+        let session = window(80, 300)
+        let one = GroupedProviderIconPlan.quota(snapshot: UsageSnapshot(
+            primary: weekly, secondary: nil, updatedAt: Date()))
+        #expect(one.shortest == weekly)
+        #expect(one.longest == nil)
+        let split = GroupedProviderIconPlan.quota(snapshot: UsageSnapshot(
+            primary: weekly, secondary: session, tertiary: window(40, 1440), updatedAt: Date()))
+        #expect(split.shortest == session)
+        #expect(split.longest == weekly)
+        let placeholder = GroupedProviderIconPlan.quota(snapshot: UsageSnapshot(
+            primary: window(0, 300, synthetic: true), secondary: weekly, updatedAt: Date()))
+        #expect(placeholder.shortest == weekly)
+        #expect(placeholder.longest == nil)
+        let unknown = GroupedProviderIconPlan.quota(snapshot: nil)
+        #expect(unknown.shortest == nil)
+        #expect(unknown.longest == nil)
+        let extra = GroupedProviderIconPlan.quota(snapshot: UsageSnapshot(
+            primary: session,
+            secondary: weekly,
+            extraRateWindows: [
+                NamedRateWindow(id: "monthly", title: "Monthly", window: window(10, 43200)),
+                NamedRateWindow(id: "unknown", title: "Unknown", window: window(100, 1), usageKnown: false),
+            ],
+            updatedAt: Date()))
+        #expect(extra.shortest == session)
+        #expect(extra.longest?.windowMinutes == 43200)
     }
 
     @Test func `warning thresholds use worst active window without notification state`() {

@@ -8,6 +8,27 @@ enum GroupedProviderIconPlan {
         let tiles = Array(providers.compactMap(\.firstPartyProvider).prefix(limit))
         return tiles.count >= 2 ? tiles : nil
     }
+
+    struct Quota {
+        let shortest: RateWindow?
+        let longest: RateWindow?
+
+        var signature: String {
+            (self.shortest?.remainingPercent.description ?? "nil")
+                + "/" + (self.longest?.remainingPercent.description ?? "nil")
+        }
+    }
+
+    static func quota(snapshot: UsageSnapshot?) -> Quota {
+        guard let snapshot else { return Quota(shortest: nil, longest: nil) }
+        var windows = [snapshot.primary, snapshot.secondary, snapshot.tertiary].compactMap { $0?.measured }
+        for extra in snapshot.extraRateWindows ?? [] where extra.usageKnown {
+            if let window = extra.window.measured { windows.append(window) }
+        }
+        windows.removeAll { !$0.usedPercent.isFinite }
+        windows.sort { ($0.windowMinutes ?? 0) < ($1.windowMinutes ?? 0) }
+        return Quota(shortest: windows.first, longest: windows.count > 1 ? windows.last : nil)
+    }
 }
 
 enum GroupedTileWarning {

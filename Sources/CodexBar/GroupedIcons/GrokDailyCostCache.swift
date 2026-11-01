@@ -30,7 +30,17 @@ final class GrokDailyCostCache {
         let home = GrokCredentialsStore.grokHomeURL()
         self.task = Task { [weak self] in
             let result = await Task.detached(priority: .utility) {
-                Result { try Self.scan(home: home, now: now, calendar: calendar, previousSignature: signature) }
+                Result {
+                    let since = calendar.date(byAdding: .day, value: -30, to: now) ?? now
+                    let mirrors = try PiSessionCostScanner.grokDailyReport(
+                        since: since, until: now, now: now, calendar: calendar)
+                    return try Self.scan(
+                        home: home,
+                        now: now,
+                        calendar: calendar,
+                        previousSignature: signature,
+                        mirrors: mirrors)
+                }
             }.value
             guard let self else { return }
             defer { self.task = nil }
@@ -58,11 +68,16 @@ final class GrokDailyCostCache {
         home: URL,
         now: Date,
         calendar: Calendar,
-        previousSignature: String?) throws -> Scan
+        previousSignature: String?,
+        mirrors: CostUsageDailyReport) throws -> Scan
     {
         let start = calendar.startOfDay(for: now)
         let log = home.appendingPathComponent("logs/unified.jsonl")
         var parts = [String(start.timeIntervalSince1970)]
+        let mirror = CostUsageTokenSnapshot.entry(in: mirrors.data, forLocalDayContaining: now, calendar: calendar)
+        let unknown = mirror?.modelBreakdowns?.filter { $0.costUSD == nil }.map(\.modelName) ?? []
+        parts.append("mirrors:\(mirror?.costUSD ?? 0):\(mirror?.totalTokens ?? 0):\(mirror?.requestCount ?? 0)")
+        parts.append("unpriced:\(unknown.sorted().joined(separator: ","))")
         try parts.append(self.fileSignature(log))
         var sessions: [(URL, Bool)] = []
         for cwd in try self.children(home.appendingPathComponent("sessions")) {
@@ -83,11 +98,15 @@ final class GrokDailyCostCache {
                 signals: modifiedToday ? self.text(url.appendingPathComponent("signals.json")) : "{}",
                 updates: modifiedToday ? self.text(url.appendingPathComponent("updates.jsonl")) : "")
         }
-        let cost = try GrokCodeBurnCost.today(
+        var cost = try GrokCodeBurnCost.today(
             unifiedLog: self.text(log),
             sessions: fixtures,
             now: now,
             calendar: calendar)
+        cost.usd += mirror?.costUSD ?? 0
+        cost.requestCount += mirror?.requestCount ?? 0
+        cost.unpricedModels = Array(Set(cost.unpricedModels + unknown)).sorted()
+        cost.estimated = cost.estimated || mirror != nil
         return Scan(signature: signature, cost: cost)
     }
 

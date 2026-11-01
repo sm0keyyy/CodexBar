@@ -1,0 +1,386 @@
+{
+  "provenance": {
+    "codeburnVersion": "0.9.27",
+    "source": "src/providers/pi.ts (createOmpProvider), src/models.ts; installed source map",
+    "recordedOn": "2026-11-01",
+    "timeZone": "UTC"
+  },
+  "entries": [
+    {
+      "type": "message",
+      "id": "entry-0",
+      "timestamp": "2026-10-29T20:56:01.349Z",
+      "message": {
+        "role": "assistant",
+        "provider": "anthropic",
+        "model": "claude-opus-5-5",
+        "timestamp": 1793307355169,
+        "responseId": "response-0",
+        "usage": {
+          "input": 4,
+          "output": 288,
+          "cacheRead": 21819,
+          "cacheWrite": 11678,
+          "totalTokens": 33789,
+          "cost": {
+            "input": 0.000016,
+            "output": 0.00576,
+            "cacheRead": 0.0043638,
+            "cacheWrite": 0.093424,
+            "total": 0.1035638
+          },
+          "cttl": {
+            "ephemeral1h": 11678
+          }
+        }
+      }
+    },
+    {
+      "type": "model_usage",
+      "id": "entry-1",
+      "timestamp": "2026-10-29T21:16:28.407Z",
+      "role": "assistant",
+      "provider": "anthropic",
+      "model": "claude-haiku-5-5",
+      "usage": {
+        "input": 4,
+        "output": 655,
+        "cacheRead": 0,
+        "cacheWrite": 964,
+        "totalTokens": 1623,
+        "cost": {
+          "input": 4.0000000000000003e-7,
+          "output": 0.0003275,
+          "cacheRead": 0,
+          "cacheWrite": 0.00019280000000000002,
+          "total": 0.0005207
+        },
+        "cttl": {
+          "ephemeral1h": 964
+        }
+      },
+      "purpose": "memory"
+    },
+    {
+      "type": "model_usage",
+      "id": "entry-2",
+      "timestamp": "2026-10-30T18:37:33.800Z",
+      "role": "assistant",
+      "provider": "anthropic",
+      "model": "claude-opus-5-5",
+      "usage": {
+        "input": 2,
+        "output": 60,
+        "cacheRead": 212870,
+        "cacheWrite": 0,
+        "totalTokens": 212932,
+        "cost": {
+          "input": 0.000008,
+          "output": 0.0012000000000000001,
+          "cacheRead": 0.042574,
+          "cacheWrite": 0,
+          "total": 0.043782
+        }
+      },
+      "purpose": "cache-warm"
+    },
+    {
+      "type": "message",
+      "id": "entry-3",
+      "timestamp": "2026-10-30T15:32:33.687Z",
+      "message": {
+        "role": "assistant",
+        "provider": "xai-oauth",
+        "model": "grok-4.7",
+        "timestamp": 1793374350817,
+        "responseId": "response-3",
+        "usage": {
+          "input": 13327,
+          "output": 171,
+          "cacheRead": 1152,
+          "cacheWrite": 0,
+          "totalTokens": 14650,
+          "reasoningTokens": 66,
+          "cost": {
+            "input": 0.026653999999999997,
+            "output": 0.001026,
+            "cacheRead": 0.000576,
+            "cacheWrite": 0,
+            "total": 0.028255999999999996
+          }
+        }
+      }
+    },
+    {
+      "type": "model_usage",
+      "id": "entry-4",
+      "timestamp": "2026-10-30T15:34:35.945Z",
+      "role": "assistant",
+      "provider": "xai-oauth",
+      "model": "grok-4.7",
+      "usage": {
+        "input": 3752,
+        "output": 186,
+        "cacheRead": 127360,
+        "cacheWrite": 0,
+        "totalTokens": 131298,
+        "reasoningTokens": 166,
+        "cost": {
+          "input": 0.007503999999999999,
+          "output": 0.001116,
+          "cacheRead": 0.06368,
+          "cacheWrite": 0,
+          "total": 0.0723
+        }
+      },
+      "purpose": "task-completion-probe"
+    },
+    {
+      "type": "message",
+      "id": "entry-5",
+      "timestamp": "2026-10-30T02:38:06.762Z",
+      "message": {
+        "role": "assistant",
+        "provider": "openai-codex",
+        "model": "gpt-6.1-sol",
+        "timestamp": 1793327881686,
+        "responseId": "response-5",
+        "usage": {
+          "input": 22633,
+          "output": 117,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "totalTokens": 22750,
+          "cost": {
+            "input": 0.045266,
+            "output": 0.00117,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0.046436
+          },
+          "premiumRequests": 0
+        }
+      }
+    },
+    {
+      "type": "model_usage",
+      "id": "entry-6",
+      "timestamp": "2026-10-30T02:40:06.019Z",
+      "role": "assistant",
+      "provider": "openai-codex",
+      "model": "gpt-6.1-sol",
+      "usage": {
+        "input": 441,
+        "output": 19,
+        "cacheRead": 81408,
+        "cacheWrite": 0,
+        "totalTokens": 81868,
+        "cost": {
+          "input": 0.000882,
+          "output": 0.00019,
+          "cacheRead": 0.0081408,
+          "cacheWrite": 0,
+          "total": 0.0092128
+        },
+        "premiumRequests": 0
+      },
+      "purpose": "task-completion-probe"
+    },
+    {
+      "type": "message",
+      "id": "entry-7",
+      "timestamp": "2026-10-31T01:15:17.591Z",
+      "message": {
+        "role": "assistant",
+        "provider": "anthropic",
+        "model": "claude-haiku-5-5",
+        "timestamp": 1793409314715,
+        "responseId": "response-7",
+        "usage": {
+          "input": 4,
+          "output": 379,
+          "cacheRead": 27479,
+          "cacheWrite": 7221,
+          "totalTokens": 35083,
+          "cost": {
+            "input": 4.0000000000000003e-7,
+            "output": 0.0001895,
+            "cacheRead": 0.00027479,
+            "cacheWrite": 0.0014442,
+            "total": 0.0019088900000000001
+          },
+          "cttl": {
+            "ephemeral1h": 7221
+          }
+        }
+      }
+    },
+    {
+      "type": "message",
+      "id": "entry-8",
+      "timestamp": "2026-10-29T22:41:45.271Z",
+      "message": {
+        "role": "assistant",
+        "provider": "openai-codex",
+        "model": "gpt-6-astra",
+        "timestamp": 1793313698576,
+        "responseId": "response-8",
+        "usage": {
+          "input": 14387,
+          "output": 238,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "totalTokens": 14625,
+          "cost": {
+            "input": 0.14387000000000003,
+            "output": 0.0119,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "total": 0.15577000000000002
+          },
+          "premiumRequests": 0
+        }
+      }
+    },
+    {
+      "type": "model_usage",
+      "id": "entry-9",
+      "timestamp": "2026-10-29T22:43:41.457Z",
+      "role": "assistant",
+      "provider": "openai-codex",
+      "model": "gpt-6-astra",
+      "usage": {
+        "input": 382,
+        "output": 6,
+        "cacheRead": 169600,
+        "cacheWrite": 0,
+        "totalTokens": 169988,
+        "cost": {
+          "input": 0.0038200000000000005,
+          "output": 0.00030000000000000003,
+          "cacheRead": 0.1696,
+          "cacheWrite": 0,
+          "total": 0.17372
+        },
+        "premiumRequests": 0
+      },
+      "purpose": "task-completion-probe"
+    },
+    {
+      "type": "message",
+      "id": "entry-10",
+      "timestamp": "2026-10-30T15:35:55.155Z",
+      "message": {
+        "role": "assistant",
+        "provider": "xai-oauth",
+        "model": "grok-4.7",
+        "timestamp": 1793374530058,
+        "responseId": "response-10",
+        "usage": {
+          "input": 2110,
+          "output": 1317,
+          "cacheRead": 198528,
+          "cacheWrite": 0,
+          "totalTokens": 201955,
+          "reasoningTokens": 1177,
+          "cost": {
+            "input": 0.00844,
+            "output": 0.015804000000000002,
+            "cacheRead": 0.19852799999999998,
+            "cacheWrite": 0,
+            "total": 0.22277199999999997
+          }
+        }
+      }
+    },
+    {
+      "type": "message",
+      "id": "entry-11",
+      "timestamp": "2026-10-31T00:00:00.911Z",
+      "message": {
+        "role": "assistant",
+        "provider": "xai-oauth",
+        "model": "grok-4.7",
+        "timestamp": 1793404797645,
+        "responseId": "response-11",
+        "usage": {
+          "input": 2930,
+          "output": 201,
+          "cacheRead": 39168,
+          "cacheWrite": 0,
+          "totalTokens": 42299,
+          "reasoningTokens": 26,
+          "cost": {
+            "input": 0.00586,
+            "output": 0.001206,
+            "cacheRead": 0.019584,
+            "cacheWrite": 0,
+            "total": 0.02665
+          }
+        }
+      }
+    }
+  ],
+  "codeburn": [
+    {
+      "model": "claude-opus-5-5",
+      "timestamp": "2026-10-29T20:56:01.349Z",
+      "costUSD": 0.1035638
+    },
+    {
+      "model": "claude-haiku-5-5",
+      "timestamp": "2026-10-29T21:16:28.407Z",
+      "costUSD": 0.0005207
+    },
+    {
+      "model": "claude-opus-5-5",
+      "timestamp": "2026-10-30T18:37:33.800Z",
+      "costUSD": 0.043782
+    },
+    {
+      "model": "grok-4.7",
+      "timestamp": "2026-10-30T15:32:33.687Z",
+      "costUSD": 0.028255999999999996
+    },
+    {
+      "model": "grok-4.7",
+      "timestamp": "2026-10-30T15:34:35.945Z",
+      "costUSD": 0.0723
+    },
+    {
+      "model": "gpt-6.1-sol",
+      "timestamp": "2026-10-30T02:38:06.762Z",
+      "costUSD": 0.046436
+    },
+    {
+      "model": "gpt-6.1-sol",
+      "timestamp": "2026-10-30T02:40:06.019Z",
+      "costUSD": 0.0092128
+    },
+    {
+      "model": "claude-haiku-5-5",
+      "timestamp": "2026-10-31T01:15:17.591Z",
+      "costUSD": 0.0019088900000000001
+    },
+    {
+      "model": "gpt-6-astra",
+      "timestamp": "2026-10-29T22:41:45.271Z",
+      "costUSD": 0.15577000000000002
+    },
+    {
+      "model": "gpt-6-astra",
+      "timestamp": "2026-10-29T22:43:41.457Z",
+      "costUSD": 0.17372
+    },
+    {
+      "model": "grok-4.7",
+      "timestamp": "2026-10-30T15:35:55.155Z",
+      "costUSD": 0.22277199999999997
+    },
+    {
+      "model": "grok-4.7",
+      "timestamp": "2026-10-31T00:00:00.911Z",
+      "costUSD": 0.02665
+    }
+  ]
+}

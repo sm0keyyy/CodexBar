@@ -252,7 +252,7 @@ struct PiSessionCostScannerTests {
     }
 
     @Test
-    func `pi scanner uses model change fallback and assistant timestamp day`() throws {
+    func `pi scanner uses model change fallback and recorded entry day`() throws {
         let env = try CostUsageTestEnvironment()
         defer { env.cleanup() }
 
@@ -300,7 +300,7 @@ struct PiSessionCostScannerTests {
             cachedInputTokens: 2,
             outputTokens: 20)
         #expect(report.data.count == 1)
-        #expect(report.data.first?.date == "2026-04-02")
+        #expect(report.data.first?.date == "2026-04-01")
         #expect(report.data.first?.totalTokens == 42)
         #expect(abs((report.data.first?.costUSD ?? 0) - (expectedCost ?? 0)) < 0.000001)
         #expect(report.data.first?.modelBreakdowns?.map(\.modelName) == ["gpt-5.3-codex"])

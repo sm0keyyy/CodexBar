@@ -4,14 +4,20 @@ extension PiSessionCostScanner {
     static func checkedReports(
         cache: PiSessionCostCache,
         range: CostUsageScanner.CostUsageDayRange)
-        -> (codex: CostUsageDailyReport, claude: CostUsageDailyReport, pi: CostUsageDailyReport)?
+        -> (
+            codex: CostUsageDailyReport,
+            claude: CostUsageDailyReport,
+            grok: CostUsageDailyReport,
+            pi: CostUsageDailyReport)?
     {
         // Provider-specific by design: Pi has native mirrors and a standalone backend partition.
         guard let codex = self.buildReport(provider: .codex, cache: cache, range: range),
               let claude = self.buildReport(provider: .claude, cache: cache, range: range),
+              let grok = self.buildReport(provider: .grok, cache: cache, range: range),
               let standalone = self.buildReport(provider: .pi, cache: cache, range: range)
         else { return nil }
-        return (codex, claude, CostUsageDailyReport.merged([codex, claude, standalone], calendar: range.calendar))
+        return (codex, claude, grok, CostUsageDailyReport.merged(
+            [codex, claude, grok, standalone], calendar: range.calendar))
     }
 
     static func buildReport(

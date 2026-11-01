@@ -20,6 +20,17 @@ struct AppGroupSupportTests {
     }
 
     @Test
+    func `local signing retains the existing widget namespace without claiming an Apple team`() {
+        #expect(AppGroupSupport.currentGroupID(teamID: "LOCAL", bundleID: "com.steipete.codexbar")
+            == "Y5PE65HELJ.com.steipete.codexbar")
+        #expect(AppGroupSupport.currentGroupID(teamID: "LOCAL", bundleID: "com.steipete.codexbar.debug")
+            == "Y5PE65HELJ.com.steipete.codexbar.debug")
+        #expect(AppGroupSupport.resolvedTeamID(
+            infoDictionaryOverride: [AppGroupSupport.teamIDInfoKey: "LOCAL"],
+            bundleURLOverride: nil) == "LOCAL")
+    }
+
+    @Test
     func `resolved team id falls back to plist and then default`() {
         #expect(
             AppGroupSupport.resolvedTeamID(

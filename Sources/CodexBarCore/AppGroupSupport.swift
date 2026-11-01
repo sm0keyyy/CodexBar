@@ -40,7 +40,9 @@ public enum AppGroupSupport {
     }
 
     static func currentGroupID(teamID: String, bundleID: String?) -> String {
-        let base = "\(teamID).com.steipete.codexbar"
+        // A local certificate changes signing identity, not the existing widget data namespace.
+        let namespace = teamID == "LOCAL" ? self.defaultTeamID : teamID
+        let base = "\(namespace).com.steipete.codexbar"
         return self.isDebugBundleID(bundleID) ? "\(base).debug" : base
     }
 

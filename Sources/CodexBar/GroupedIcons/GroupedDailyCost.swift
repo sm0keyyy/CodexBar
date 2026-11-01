@@ -18,6 +18,7 @@ enum GroupedDailyCost {
     struct ProviderCostInput {
         let name: String
         let value: Value
+        var pricingNote: String?
     }
 
     struct Summary {
@@ -47,6 +48,7 @@ enum GroupedDailyCost {
             case let .estimate(usd, models):
                 parts.append("\(input.name) ≈\(format(usd)) (\(L("grouped_icons_tooltip_estimate")))")
                 extra += models.map { L("grouped_icons_tooltip_no_price", input.name, $0) }
+                if let note = input.pricingNote { extra.append(note) }
             }
         }
         var lines = total.map { [L("grouped_icons_tooltip_today", format($0))] } ?? []

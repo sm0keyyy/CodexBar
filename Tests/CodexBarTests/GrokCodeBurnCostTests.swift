@@ -1,3 +1,4 @@
+import CodexBarCore
 import Foundation
 import Testing
 @testable import CodexBar
@@ -62,7 +63,7 @@ struct GrokCodeBurnCostTests {
         #expect(abs(self.scan(self.request(model: "grok-4.6")).usd - 0.57) < 0.00000001)
         let catalog = "{\"msg\":\"model catalog: notifying clients\",\"pid\":123,"
             + "\"ctx\":{\"current_model_id\":\"grok-4.7\"}}\n"
-        #expect(abs(self.scan(catalog + self.request()).usd - 0.285) < 0.00000001)
+        #expect(abs(self.scan(catalog + self.request()).usd - 0.57) < 0.00000001)
         #expect(abs(self.scan(self.request(model: "grok-4.6", prompt: 150_000, cached: 100_000)).usd - 0.21)
             < 0.00000001)
         let log = self.request(model: "grok-4.6")
@@ -72,7 +73,7 @@ struct GrokCodeBurnCostTests {
 
     @Test func `model fallback and rotated session exclusion follow CodeBurn`() {
         let session = self.session(updates: self.completed(input: 3_784_207, cached: 3_020_544, output: 21146))
-        #expect(abs(self.scan(sessions: [session]).usd - 3.164474) < 0.00000001)
+        #expect(abs(self.scan(sessions: [session]).usd - 6.328948) < 0.00000001)
         let log = self.request(model: "grok-4.6")
         #expect(self.scan(log, sessions: [session]).requestCount == 1)
         #expect(abs(self.scan(self.request(), sessions: [session]).usd - 0.57) < 0.00000001)
@@ -80,8 +81,8 @@ struct GrokCodeBurnCostTests {
         let unknown = self.scan(self.request(model: "unknown-model"))
         #expect(unknown.usd == 0)
         #expect(unknown.unpricedModels == ["unknown-model"])
-        #expect(GrokPriceTable.rates(model: "xai/grok-build")?.input == 1)
-        #expect(GrokPriceTable.rates(model: "grok-build-latest")?.cached == 0.3)
+        #expect(GroupedCostPriceTable.rates(model: "xai/grok-build")?.input == 1)
+        #expect(GroupedCostPriceTable.rates(model: "grok-build-latest")?.cached == 0.3)
     }
 
     @Test func `completed turns use last record and legacy compaction retains segment peaks`() {
@@ -102,7 +103,7 @@ struct GrokCodeBurnCostTests {
     @Test func `local day excludes yesterday but session totals count on update day`() {
         #expect(self.scan(self.request(model: "grok-4.6", timestamp: "2026-11-01T05:00:00Z")).usd == 0)
         let usage = self.completed(input: 3_784_207, cached: 3_020_544, output: 21146)
-        #expect(abs(self.scan(sessions: [self.session(updates: usage)]).usd - 3.164474) < 0.00000001)
+        #expect(abs(self.scan(sessions: [self.session(updates: usage)]).usd - 6.328948) < 0.00000001)
         #expect(self.scan(sessions: [self.session(updates: usage, date: "2026-11-01T05:00:00Z")]).usd == 0)
         let yesterday = self.request(model: "grok-4.6", timestamp: "2026-11-01T05:00:00Z")
         #expect(self.scan(yesterday, sessions: [self.session(updates: usage)]).usd == 0)
@@ -117,5 +118,34 @@ struct GrokCodeBurnCostTests {
         "ctx":{"prompt_tokens":true,"completion_tokens":10}}
         """
         #expect(self.scan(invalid).requestCount == 0)
+    }
+
+    @Test(arguments: [
+        ("grok-4.7", 2.0, 6.0, 0.5),
+        ("grok-4.6-build", 2.0, 6.0, 0.5),
+        ("xai/grok-4.5-latest", 2.0, 6.0, 0.3),
+        ("xai-oauth/grok-build", 1.0, 2.0, 0.2),
+        ("grok-build-0.1", 1.0, 2.0, 0.2),
+        ("grok-code-fast-1", 1.0, 2.0, 0.2),
+    ])
+    func `official rates double every bucket at the inclusive prompt threshold`(
+        model: String, input: Double, output: Double, cached: Double)
+    {
+        let below = GroupedCostPriceTable.rates(model: model, promptTokens: 199_999)
+        #expect(below?.input == input)
+        #expect(below?.output == output)
+        #expect(below?.cached == cached)
+        let threshold = GroupedCostPriceTable.rates(model: model, promptTokens: 200_000)
+        #expect(threshold?.input == input * 2)
+        #expect(threshold?.output == output * 2)
+        #expect(threshold?.cached == cached * 2)
+    }
+
+    @Test func `cache creation participates in the prompt threshold without a surcharge`() {
+        let cost = GroupedCostPriceTable.cost(
+            model: "grok-build",
+            tokens: .init(fresh: 100_000, output: 10000, cacheRead: 50000, cacheCreation: 50000))
+        #expect(cost == 0.36)
+        #expect(GroupedCostPriceTable.rates(model: "unknown-model", promptTokens: 300_000) == nil)
     }
 }

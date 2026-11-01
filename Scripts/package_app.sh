@@ -2,11 +2,11 @@
 set -euo pipefail
 
 resolve_package_signing_mode() {
-  local requested="${CODEXBAR_SIGNING:-adhoc}"
+  local requested="${CODEXBAR_SIGNING:-auto}"
   case "$requested" in
-    adhoc|identity) ;;
+    auto|adhoc|identity|local) ;;
     *)
-      echo "ERROR: Unsupported CODEXBAR_SIGNING: $requested (expected adhoc or identity)" >&2
+      echo "ERROR: Unsupported CODEXBAR_SIGNING: $requested (expected auto, adhoc, identity, or local)" >&2
       return 1
       ;;
   esac
@@ -20,6 +20,10 @@ resolve_package_signing_identity() {
   fi
 
   local requested="${APP_IDENTITY:-Developer ID Application: Peter Steinberger (Y5PE65HELJ)}"
+  local local_identity="CodexBar Local Signing"
+  if [[ "$SIGNING_MODE" == "auto" || "$SIGNING_MODE" == "local" ]]; then
+    requested="$local_identity"
+  fi
   local identities line name hash selected_name="" selected_hash="" matches=0
   if ! identities=$(security find-identity -p codesigning -v); then
     echo "ERROR: Unable to list valid code-signing identities." >&2
@@ -32,15 +36,28 @@ resolve_package_signing_identity() {
     [[ "$line" =~ $identity_pattern ]] || continue
     hash="${BASH_REMATCH[1]}"
     name="${BASH_REMATCH[2]}"
-    if [[ "$hash" == "$requested_hash" || "$name" == *"$requested"* ]]; then
+    if { [[ "$SIGNING_MODE" == "identity" ]] && [[ "$hash" == "$requested_hash" || "$name" == *"$requested"* ]]; } ||
+      { [[ "$SIGNING_MODE" != "identity" ]] && [[ "$name" == "$local_identity" ]]; }; then
       selected_name="$name"
       selected_hash="$hash"
       matches=$((matches + 1))
     fi
   done <<<"$identities"
+  if [[ "$SIGNING_MODE" == "auto" && "$matches" == "0" ]]; then
+    SIGNING_MODE="adhoc"
+    APP_TEAM_ID="${APP_TEAM_ID:-Y5PE65HELJ}"
+    return
+  fi
   if [[ "$matches" != "1" ]]; then
-    echo "ERROR: APP_IDENTITY must match exactly one valid identity (found $matches); use its full name or SHA-1 hash." >&2
+    echo "ERROR: Requested signing identity must match exactly one valid identity (found $matches): $requested" >&2
     return 1
+  fi
+  if [[ "$SIGNING_MODE" == "auto" || "$SIGNING_MODE" == "local" ]]; then
+    SIGNING_MODE="local"
+    # Local certificates have no Apple team; the existing app-group namespace is preserved below.
+    APP_TEAM_ID="LOCAL"
+    CODESIGN_ID="$selected_hash"
+    return
   fi
   # Developer ID names end in the Team ID; development names may end in a personal ID instead.
   local team_pattern='^Developer ID Application: .+ \(([A-Z0-9]{10})\)$'
@@ -283,13 +300,16 @@ if [[ "$LOWER_CONF" == "debug" ]]; then
   FEED_URL=""
   AUTO_CHECKS=false
 fi
-if [[ "$SIGNING_MODE" == "adhoc" ]]; then
+WIDGET_BUNDLE_ID="${BUNDLE_ID}.widget"
+resolve_package_signing_identity
+if [[ "$SIGNING_MODE" != "identity" ]]; then
   FEED_URL=""
   AUTO_CHECKS=false
 fi
-WIDGET_BUNDLE_ID="${BUNDLE_ID}.widget"
-resolve_package_signing_identity
 APP_GROUP_ID="${APP_TEAM_ID}.${BUNDLE_ID}"
+if [[ "$SIGNING_MODE" == "local" ]]; then
+  APP_GROUP_ID="Y5PE65HELJ.${BUNDLE_ID}"
+fi
 ENTITLEMENTS_DIR="$ROOT/.build/entitlements"
 APP_ENTITLEMENTS="${ENTITLEMENTS_DIR}/CodexBar.entitlements"
 WIDGET_ENTITLEMENTS="${ENTITLEMENTS_DIR}/CodexBarWidget.entitlements"
@@ -300,7 +320,7 @@ if [[ "$ALLOW_LLDB" == "1" && "$LOWER_CONF" != "debug" ]]; then
 fi
 # iCloud sync (CloudKit) requires restricted entitlements authorized by an embedded
 # Developer ID provisioning profile. Only upstream-team identity-signed release builds of the primary
-# bundle ID carry them; other teams and adhoc/debug builds run with sync unavailable.
+# bundle ID carry them; other teams and local/adhoc/debug builds run with sync unavailable.
 PROVISIONING_PROFILE_SOURCE="$ROOT/Scripts/profiles/CodexBar-DeveloperID.provisionprofile"
 EMBED_PROVISIONING_PROFILE=0
 ICLOUD_ENTITLEMENT_KEYS=""
@@ -581,6 +601,8 @@ SPARKLE="$APP/Contents/Frameworks/Sparkle.framework"
 if [[ "$SIGNING_MODE" == "adhoc" ]]; then
   CODESIGN_ID="-"
   CODESIGN_ARGS=(--force --sign "$CODESIGN_ID")
+elif [[ "$SIGNING_MODE" == "local" ]]; then
+  CODESIGN_ARGS=(--force --timestamp=none --sign "$CODESIGN_ID")
 elif [[ "$ALLOW_LLDB" == "1" ]]; then
   CODESIGN_ID="-"
   CODESIGN_ARGS=(--force --sign "$CODESIGN_ID")

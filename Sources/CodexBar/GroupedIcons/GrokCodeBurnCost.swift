@@ -1,3 +1,4 @@
+import CodexBarCore
 import CoreFoundation
 import Foundation
 
@@ -138,8 +139,8 @@ enum GrokCodeBurnCost {
             }
         }
         if input + output + cached + creation > 0 {
-            let selected = modelIDs.first { GrokPriceTable.rates(model: $0) != nil }
-                ?? (GrokPriceTable.rates(model: model) != nil ? model : modelIDs.first ?? model)
+            let selected = modelIDs.first { GroupedCostPriceTable.rates(model: $0) != nil }
+                ?? (GroupedCostPriceTable.rates(model: model) != nil ? model : modelIDs.first ?? model)
             self.add(
                 model: selected,
                 tokens: .init(fresh: input, output: output, cacheRead: cached, cacheCreation: creation),
@@ -160,11 +161,11 @@ enum GrokCodeBurnCost {
 
     private static func add(
         model: String,
-        tokens: GrokPriceTable.Tokens,
+        tokens: GroupedCostPriceTable.Tokens,
         estimated: Bool,
         to result: inout GrokDayCost)
     {
-        if let cost = GrokPriceTable.cost(model: model, tokens: tokens) {
+        if let cost = GroupedCostPriceTable.cost(model: model, tokens: tokens) {
             result.usd += cost
         } else if !result.unpricedModels.contains(model) { result.unpricedModels.append(model) }
         result.estimated = result.estimated || estimated

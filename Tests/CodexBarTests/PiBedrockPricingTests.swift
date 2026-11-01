@@ -43,20 +43,21 @@ struct PiBedrockPricingTests {
     }
 
     @Test
-    func `one hour cache writes are a subset of total writes for anthropic and bedrock`() throws {
-        for provider in ["anthropic", "amazon-bedrock"] {
+    func `one hour cache writes stay disjoint and only anthropic retains recorded cost`() throws {
+        for (provider, recordedCost) in [("anthropic", 0.0), ("anthropic", 99.0), ("amazon-bedrock", 99.0)] {
             let env = try CostUsageTestEnvironment()
             defer { env.cleanup() }
             let day = try env.makeLocalNoon(year: 2026, month: 9, day: 29)
             let model = provider == "anthropic" ? "claude-sonnet-4-6" : "us.anthropic.claude-sonnet-4-6"
             #expect(try ModelsDevCache.save(
                 catalog: self.catalog(models: [model: 3.3]), fetchedAt: day, cacheRoot: env.cacheRoot))
-            let row = self.row(env: env, day: day, provider: provider, model: model, oneHour: 6)
+            let row = self.row(
+                env: env, day: day, provider: provider, model: model, oneHour: 6, recordedCost: recordedCost)
             _ = try env.writePiSessionFile(relativePath: "cache.jsonl", contents: env.jsonl([row]))
             let result = try self.scan(env: env, day: day)
             #expect(result.isComplete)
             #expect(result.report.summary?.totalTokens == 140)
-            let expected = provider == "anthropic" ? 0.000654 : 0.0004866
+            let expected = provider == "anthropic" ? (recordedCost > 0 ? recordedCost : 0.000654) : 0.0004866
             #expect(abs((result.report.summary?.totalCostUSD ?? 0) - expected) < 0.000000001)
 
             var releasedCache = PiSessionCostCacheIO.load(cacheRoot: env.cacheRoot)
@@ -90,7 +91,12 @@ struct PiBedrockPricingTests {
     }
 
     private func row(
-        env: CostUsageTestEnvironment, day: Date, provider: String, model: String, oneHour: Any = 0) -> [String: Any]
+        env: CostUsageTestEnvironment,
+        day: Date,
+        provider: String,
+        model: String,
+        oneHour: Any = 0,
+        recordedCost: Double = 99) -> [String: Any]
     {
         [
             "type": "message", "timestamp": env.isoString(for: day),
@@ -103,7 +109,7 @@ struct PiBedrockPricingTests {
                     "cacheWrite": 10,
                     "cacheWrite1h": oneHour,
                     "totalTokens": 140,
-                    "cost": ["total": 99],
+                    "cost": ["total": recordedCost],
                 ],
             ],
         ]

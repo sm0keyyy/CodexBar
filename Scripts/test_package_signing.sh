@@ -29,11 +29,12 @@ source "$FUNCTIONS_FILE"
 unset CODEXBAR_SIGNING
 SIGNING_MODE=
 resolve_package_signing_mode
-[[ "$SIGNING_MODE" == "adhoc" ]]
+[[ "$SIGNING_MODE" == "auto" ]]
 
-CODEXBAR_SIGNING=identity
-resolve_package_signing_mode
-[[ "$SIGNING_MODE" == "identity" ]]
+for CODEXBAR_SIGNING in adhoc identity local; do
+  resolve_package_signing_mode
+  [[ "$SIGNING_MODE" == "$CODEXBAR_SIGNING" ]]
+done
 
 CODEXBAR_SIGNING=invalid
 if resolve_package_signing_mode 2>/dev/null; then
@@ -202,6 +203,64 @@ with tempfile.TemporaryDirectory(prefix='codexbar-identity-test-') as directory:
         assert app_entitlements == expected_app, label
         assert widget_entitlements['com.apple.security.application-groups'] == expected_group, label
 print(f'{len(cases) * 2} direct identity cases passed without signing or Keychain access.')
+
+start = source.index('if [[ "$SIGNING_MODE" == "adhoc" ]]; then', source.index('SPARKLE="$APP/Contents/Frameworks/Sparkle.framework"'))
+signing_arguments = source[start:source.index('\nfunction resign()', start)]
+local_listing = f'  1) {second_hash} "CodexBar Local Signing"\n'
+local_cases = [
+    ('auto absent', 'auto', '', 0, 'adhoc'),
+    ('auto ignores Developer ID', 'auto', listing, 0, 'adhoc'),
+    ('auto exact local', 'auto', listing + local_listing, 0, 'local'),
+    ('auto rejects partial name', 'auto', local_listing.replace('Signing"', 'Signing Other"'), 0, 'adhoc'),
+    ('explicit local', 'local', local_listing, 0, 'local'),
+    ('explicit local absent', 'local', listing, 0, None),
+    ('auto duplicate', 'auto', local_listing * 2, 0, None),
+    ('local duplicate', 'local', local_listing * 2, 0, None),
+    ('auto query failure', 'auto', local_listing, 1, None),
+    ('local query failure', 'local', local_listing, 1, None),
+    ('explicit adhoc', 'adhoc', local_listing, 1, 'adhoc'),
+]
+for (label, mode, identities, query_exit, expected_mode), (configuration, lldb) in itertools.product(
+    local_cases, [('release', '0'), ('debug', '1')],
+):
+    with tempfile.TemporaryDirectory(prefix='codexbar-local-signing-test-') as directory:
+        root = Path(directory)
+        app = root / 'CodexBar.app'
+        (app / 'Contents').mkdir(parents=True)
+        env = dict(os.environ, ROOT=str(root), APP=str(app), LOWER_CONF=configuration, ALLOW_LLDB=lldb,
+                   SIGNING_MODE=mode, APP_TEAM_ID='Y5PE65HELJ', APP_IDENTITY=upstream,
+                   MOCK_IDENTITIES=identities, MOCK_SECURITY_EXIT=str(query_exit))
+        stub = 'security() { [[ "$*" == "find-identity -p codesigning -v" ]] || return 99; printf "%s" "$MOCK_IDENTITIES"; return "$MOCK_SECURITY_EXIT"; }'
+        output = 'printf "%s\\n" "$SIGNING_MODE" "$APP_TEAM_ID" "$CODESIGN_ID" "$FEED_URL" "$AUTO_CHECKS" "$EMBED_PROVISIONING_PROFILE" "${CODESIGN_ARGS[@]}"'
+        result = subprocess.run(['bash', '-eu', '-c', '\n'.join([stub, helper, generation, embedding, signing_arguments, output])],
+                                env=env, capture_output=True, text=True)
+        if expected_mode is None:
+            assert result.returncode != 0 and 'ERROR:' in result.stderr, (label, result)
+            assert not (root / '.build/entitlements/CodexBar.entitlements').exists(), label
+            continue
+        assert result.returncode == 0, (label, result.stderr)
+        if expected_mode == 'local':
+            expected_team, expected_identity = 'LOCAL', second_hash
+            expected_arguments = ['--force', '--timestamp=none', '--sign', second_hash]
+        else:
+            expected_team, expected_identity = 'Y5PE65HELJ', '-'
+            expected_arguments = ['--force', '--sign', '-']
+        assert result.stdout.splitlines() == [
+            expected_mode, expected_team, expected_identity, '', 'false', '0', *expected_arguments,
+        ], (label, result.stdout)
+        suffix = '.debug' if configuration == 'debug' else ''
+        group = [f'Y5PE65HELJ.com.steipete.codexbar{suffix}']
+        app_entitlements = plistlib.loads((root / '.build/entitlements/CodexBar.entitlements').read_bytes())
+        expected_app = {'com.apple.security.application-groups': group}
+        if lldb == '1':
+            expected_app['com.apple.security.get-task-allow'] = True
+        assert app_entitlements == expected_app, label
+        widget_entitlements = plistlib.loads((root / '.build/entitlements/CodexBarWidget.entitlements').read_bytes())
+        assert widget_entitlements == {
+            'com.apple.security.app-sandbox': True, 'com.apple.security.application-groups': group,
+        }, label
+        assert not (app / 'Contents/embedded.provisionprofile').exists(), label
+print(f'{len(local_cases) * 2} local/ad-hoc selection cases passed without signing or Keychain access.')
 
 release_source = Path(sys.argv[2]).read_text()
 identity_assignment = next(line for line in release_source.splitlines() if line.startswith('APP_IDENTITY='))

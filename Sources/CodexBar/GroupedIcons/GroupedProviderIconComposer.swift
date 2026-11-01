@@ -8,15 +8,16 @@ enum GroupedProviderIconComposer {
         var slices: [(NSBitmapImageRep, Range<Int>)] = []
         for image in tiles {
             guard let bitmap = self.rasterize(image), let data = bitmap.bitmapData else { return nil }
-            var left = 36
+            let width = bitmap.pixelsWide
+            var left = width
             var right = 0
-            for x in 0..<36 {
+            for x in 0..<width {
                 for y in 0..<36 where data[y * bitmap.bytesPerRow + x * 4 + 3] > 0 {
                     left = min(left, x)
                     right = max(right, x + 1)
                 }
             }
-            if left == 36 { left = 0; right = 36 }
+            if left == width { left = 0; right = width }
             if backingScale < 2 {
                 left = left / 2 * 2
                 right = (right + 1) / 2 * 2
@@ -44,18 +45,125 @@ enum GroupedProviderIconComposer {
     }
 
     static func rasterize(_ image: NSImage) -> NSBitmapImageRep? {
-        guard let bitmap = self.bitmap(width: 36), let context = NSGraphicsContext(bitmapImageRep: bitmap) else {
+        guard let bitmap = self.bitmap(width: Int((image.size.width * 2).rounded(.up))),
+              let context = NSGraphicsContext(bitmapImageRep: bitmap)
+        else {
             return nil
         }
         NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.current = context
         image.draw(
-            in: NSRect(x: 0, y: 0, width: 18, height: 18),
+            in: NSRect(origin: .zero, size: image.size),
             from: .zero,
             operation: .sourceOver,
             fraction: 1)
         NSGraphicsContext.restoreGraphicsState()
         return bitmap
+    }
+
+    static let tileSize = NSSize(width: 24, height: 18)
+    static let pillRect = NSRect(x: 0, y: 4, width: 24, height: 10)
+
+    static func pill(primary: Double?, secondary: Double?, color: NSColor?, stale: Bool) -> NSImage {
+        let weekly = color ?? .black
+        let session = color != nil && secondary != nil ? self.sessionColor(for: weekly) : weekly
+        let track = NSColor(white: color != nil && self.lab(weekly).l > 50 ? 0.12 : 0.6, alpha: 1)
+        let rect = self.pillRect
+        let halfHeight = (rect.height - 0.5) / 2
+        let image = NSImage(size: self.tileSize, flipped: false) { _ in
+            NSGraphicsContext.saveGraphicsState()
+            defer { NSGraphicsContext.restoreGraphicsState() }
+            let outline = NSBezierPath(roundedRect: rect, xRadius: 5, yRadius: 5)
+            outline.addClip()
+            track.withAlphaComponent(color == nil ? (stale ? 0.08 : 0.18) : (stale ? 0.45 : 1)).setFill()
+            rect.fill()
+            let fraction = { (percent: Double) in CGFloat(min(100, max(0, percent))) / 100 }
+            if let primary {
+                let split = secondary != nil
+                weekly.withAlphaComponent(stale ? 0.45 : 1).setFill()
+                if split { session.withAlphaComponent(stale ? 0.45 : 1).setFill() }
+                NSRect(
+                    x: 0,
+                    y: split ? rect.midY + 0.25 : rect.minY,
+                    width: rect.width * fraction(primary),
+                    height: split ? halfHeight : rect.height).fill()
+                if let secondary {
+                    weekly.withAlphaComponent(stale ? 0.45 : 1).setFill()
+                    NSRect(x: 0, y: rect.minY, width: rect.width * fraction(secondary), height: halfHeight).fill()
+                }
+            }
+            weekly.withAlphaComponent(stale ? 0.45 : 1).setStroke()
+            let border = NSBezierPath(
+                roundedRect: rect.insetBy(dx: 0.25, dy: 0.25), xRadius: 4.75, yRadius: 4.75)
+            border.lineWidth = 0.5
+            border.stroke()
+            return true
+        }
+        image.isTemplate = color == nil
+        return image
+    }
+
+    static func sessionColor(for weekly: NSColor) -> NSColor {
+        let original = self.lab(weekly)
+        for fraction in stride(from: 0.85, through: 1.0, by: 0.05) {
+            let candidate = weekly.blended(withFraction: fraction, of: .white)!
+            let measured = self.lab(candidate)
+            if measured.l - original.l >= 20, self.deltaE(original, measured) >= 15 { return candidate }
+        }
+        // Bright palettes cannot gain enough lightness; retain their hue in a darker neutral blend.
+        return weekly.blended(withFraction: 0.85, of: NSColor(white: 0.12, alpha: 1))!
+    }
+
+    static func lab(_ color: NSColor) -> (l: Double, a: Double, b: Double) {
+        let rgb = color.usingColorSpace(.sRGB)!
+        func linear(_ value: Double) -> Double {
+            value <= 0.04045 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)
+        }
+        func transform(_ value: Double) -> Double {
+            value > 216.0 / 24389 ? cbrt(value) : (24389.0 / 27 * value + 16) / 116
+        }
+        let r = linear(rgb.redComponent), g = linear(rgb.greenComponent), b = linear(rgb.blueComponent)
+        let x = transform((0.4124564 * r + 0.3575761 * g + 0.1804375 * b) / 0.95047)
+        let y = transform(0.2126729 * r + 0.7151522 * g + 0.0721750 * b)
+        let z = transform((0.0193339 * r + 0.1191920 * g + 0.9503041 * b) / 1.08883)
+        return (116 * y - 16, 500 * (x - y), 200 * (y - z))
+    }
+
+    static func deltaE(_ first: (l: Double, a: Double, b: Double), _ second: (l: Double, a: Double, b: Double))
+        -> Double
+    {
+        func radians(_ degrees: Double) -> Double { degrees * .pi / 180 }
+        func hue(_ a: Double, _ b: Double) -> Double {
+            let angle = atan2(b, a) * 180 / .pi
+            return angle < 0 ? angle + 360 : angle
+        }
+        let meanChroma = (hypot(first.a, first.b) + hypot(second.a, second.b)) / 2
+        let adjustment = 0.5 * (1 - sqrt(pow(meanChroma, 7) / (pow(meanChroma, 7) + pow(25, 7))))
+        let a1 = first.a * (1 + adjustment), a2 = second.a * (1 + adjustment)
+        let c1 = hypot(a1, first.b), c2 = hypot(a2, second.b)
+        let h1 = hue(a1, first.b), h2 = hue(a2, second.b)
+        var deltaHue = h2 - h1
+        if c1 * c2 == 0 {
+            deltaHue = 0
+        } else if deltaHue > 180 {
+            deltaHue -= 360
+        } else if deltaHue < -180 {
+            deltaHue += 360
+        }
+        let deltaH = 2 * sqrt(c1 * c2) * sin(radians(deltaHue / 2))
+        let meanL = (first.l + second.l) / 2, meanC = (c1 + c2) / 2
+        var meanH = h1 + h2
+        if c1 * c2 != 0 {
+            meanH = abs(h1 - h2) <= 180 ? meanH / 2 : (meanH + (meanH < 360 ? 360 : -360)) / 2
+        }
+        let t = 1 - 0.17 * cos(radians(meanH - 30)) + 0.24 * cos(radians(2 * meanH))
+            + 0.32 * cos(radians(3 * meanH + 6)) - 0.20 * cos(radians(4 * meanH - 63))
+        let lightness = 1 + 0.015 * pow(meanL - 50, 2) / sqrt(20 + pow(meanL - 50, 2))
+        let chroma = 1 + 0.045 * meanC, hueScale = 1 + 0.015 * meanC * t
+        let rotation = -2 * sqrt(pow(meanC, 7) / (pow(meanC, 7) + pow(25, 7)))
+            * sin(radians(60 * exp(-pow((meanH - 275) / 25, 2))))
+        let dl = (second.l - first.l) / lightness, dc = (c2 - c1) / chroma, dh = deltaH / hueScale
+        return sqrt(dl * dl + dc * dc + dh * dh + rotation * dc * dh)
     }
 
     private static func bitmap(width: Int) -> NSBitmapImageRep? {
