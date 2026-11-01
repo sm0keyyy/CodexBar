@@ -107,6 +107,22 @@ The signature includes mirror cost, tokens, and request count, plus native log s
 Unchanged signatures skip parsing. Read failures retain the previous value and log once without file contents.
 Tests suppress the singleton's real-home scans.
 
+### Memory
+
+Pi/OMP already streams JSONL records, skips unchanged file stamps, and resumes appended files from their committed offsets.
+The persistent cache uses immutable source-file shards through the existing fragment cache.
+An unchanged artifact stamp reuses the decoded snapshot across provider reads.
+A changed source rewrites its shard, not the full session ledger.
+The fragment cache bounds retained snapshots by count and encoded byte cost.
+The manifest rename remains the atomic commit point. Corrupt artifacts rebuild from the source files.
+Existing monolithic v9 artifacts migrate on the next successful scan.
+Pricing, day windows, recursive discovery, and duplicate-entry rules remain unchanged.
+
+`PiSessionMemoryTests` uses synthetic sessions in one directory.
+It asserts zero transcript parses and zero artifact buffers across ten unchanged refreshes.
+One appended session requires one parse and one encoded shard smaller than 4096 bytes.
+This deterministic buffer guard does not claim a process-wide malloc limit.
+
 ## Upstream hooks
 
 Paths below are relative to `Sources/CodexBar`.

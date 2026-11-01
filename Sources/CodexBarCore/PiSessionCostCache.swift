@@ -20,13 +20,16 @@ enum PiSessionCostCacheIO {
 
     static func load(cacheRoot: URL? = nil) -> PiSessionCostCache {
         let url = self.cacheFileURL(cacheRoot: cacheRoot)
-        guard let data = try? Data(contentsOf: url),
-              let decoded = try? JSONDecoder().decode(PiSessionCostCache.self, from: data),
-              decoded.version == Self.artifactVersion
-        else {
-            return PiSessionCostCache(version: Self.artifactVersion)
-        }
-        return decoded
+        guard let loaded = try? CostUsageClaudeFragments.shared.load(at: url, legacy: { data in
+            var cache = try JSONDecoder().decode(PiSessionCostCache.self, from: data)
+            let files = cache.files
+            cache.files = [:]
+            return (cache, files)
+        }) else { return PiSessionCostCache(version: Self.artifactVersion) }
+        var cache: PiSessionCostCache = loaded.0
+        guard cache.version == Self.artifactVersion else { return PiSessionCostCache(version: Self.artifactVersion) }
+        cache.files = loaded.1
+        return cache
     }
 
     static func save(
@@ -35,14 +38,11 @@ enum PiSessionCostCacheIO {
         calendar: Calendar = .current)
     {
         let url = self.cacheFileURL(cacheRoot: cacheRoot)
-        let dir = url.deletingLastPathComponent()
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-
-        var cache = cache
-        cache.timeZoneIdentifier = calendar.timeZone.identifier
-        guard let data = try? JSONEncoder().encode(cache) else { return }
-        // Write at the final path: FileManager replacement can lose the destination on Linux.
-        try? data.write(to: url, options: [.atomic])
+        var header = cache
+        header.timeZoneIdentifier = calendar.timeZone.identifier
+        header.files = [:]
+        _ = try? CostUsageClaudeFragments.shared.save(
+            header: header, values: cache.files, at: url, shardByFile: true)
     }
 }
 
@@ -62,7 +62,7 @@ struct PiSessionCostCache: Codable {
     }
 }
 
-struct PiSessionFileUsage: Codable {
+struct PiSessionFileUsage: Codable, Equatable {
     var mtimeUnixMs: Int64
     var size: Int64
     var parsedBytes: Int64

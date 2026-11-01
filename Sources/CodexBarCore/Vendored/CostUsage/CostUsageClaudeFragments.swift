@@ -6,6 +6,7 @@ final class CostUsageClaudeFragments: @unchecked Sendable {
     #if DEBUG
     @TaskLocal static var shared = CostUsageClaudeFragments()
     @TaskLocal static var beforeManifestForTesting: (@Sendable () throws -> Void)?
+    @TaskLocal static var observeEncodedBytesForTesting: (@Sendable (Int) -> Void)?
     #else
     static let shared = CostUsageClaudeFragments()
     #endif
@@ -113,6 +114,7 @@ final class CostUsageClaudeFragments: @unchecked Sendable {
         values: [String: Value],
         at url: URL,
         contentID: UUID? = nil,
+        shardByFile: Bool = false,
         checkCancellation: CostUsageScanner.CancellationCheck? = nil) throws -> CostUsageClaudeFileStamp?
     {
         try self.lock.withLock {
@@ -126,13 +128,14 @@ final class CostUsageClaudeFragments: @unchecked Sendable {
                 var groups: [Data: [String]] = [:]
                 var oldCounts: [Data: Int] = [:]
                 func parent(_ path: String) -> Data {
+                    if shardByFile { return Data(path.utf8) }
                     let end = path.lastIndex(of: "/") ?? path.startIndex
                     return Data(path[..<end].utf8)
                 }
                 for path in oldValues.keys {
                     oldCounts[parent(path), default: 0] += 1
                 }
-                // Group only by lexical parent; this must never change source discovery or follow symlinks.
+                // Shard boundaries never change source discovery or follow symlinks.
                 for path in values.keys {
                     groups[parent(path), default: []].append(path)
                 }
@@ -149,6 +152,9 @@ final class CostUsageClaudeFragments: @unchecked Sendable {
                     } else {
                         let group = paths.reduce(into: [String: Value]()) { $0[$1] = values[$1] }
                         let data = try encoder.encode(group)
+                        #if DEBUG
+                        Self.observeEncodedBytesForTesting?(data.count)
+                        #endif
                         let reference = Self.digest(data)
                         let target = Self.directory(at: url).appendingPathComponent(reference + ".json")
                         let old = (current?.manifest.shards[key]).map {

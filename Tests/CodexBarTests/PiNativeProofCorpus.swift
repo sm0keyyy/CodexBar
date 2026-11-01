@@ -153,10 +153,9 @@ struct PiNativeProofCorpus: Sendable {
     func cacheEvidence() -> [String: Any] {
         let url = PiSessionCostCacheIO.cacheFileURL(cacheRoot: self.cache)
         guard let data = try? Data(contentsOf: url) else { return [:] }
-        let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
         return [
             "sha256": SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined(),
-            "lastScanUnixMs": object?["lastScanUnixMs"] ?? NSNull(),
+            "lastScanUnixMs": PiSessionCostCacheIO.load(cacheRoot: self.cache).lastScanUnixMs,
         ]
     }
 
