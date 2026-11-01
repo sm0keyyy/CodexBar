@@ -101,6 +101,8 @@ struct MenuBarPane: View {
                     })
                     .disabled(!self.mergedIconPresentation.canStack)
 
+                GroupedProviderIconSettingsRows(settings: self.settings)
+
                 if let pair = self.mergedIconPresentation.stackedProviders {
                     self.stackedRowProviderPicker(
                         title: L("merge_icon_stacked_top_provider_title"),

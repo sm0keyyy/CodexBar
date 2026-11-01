@@ -2795,3 +2795,16 @@
 "Leave blank to use the default name." = "Biarkan kosong untuk menggunakan nama bawaan.";
 "Rewards" = "Hadiah";
 "Reward expiry" = "Kedaluwarsa hadiah";
+
+"grouped_icons_title" = "Show every provider";
+"grouped_icons_subtitle" = "One icon with every provider's critter and today's cost. Replaces the icon style, source, and layout above.";
+"grouped_icons_cost_off_hint" = "Turn on cost tracking to show today's cost.";
+"grouped_icons_budget_title" = "Daily cost budget (USD)";
+"grouped_icons_budget_subtitle" = "The cost turns amber above this amount. Leave empty to turn it off.";
+"grouped_icons_tooltip_today" = "Today: %@";
+"grouped_icons_tooltip_estimate" = "estimate";
+"grouped_icons_tooltip_no_price" = "%@: no price for %@";
+"grouped_icons_tooltip_loading" = "loading";
+"grouped_icons_tooltip_unpriced" = "unpriced";
+"grouped_icons_tooltip_budget" = "Budget %@";
+"grouped_icons_tooltip_more" = "+%d more";

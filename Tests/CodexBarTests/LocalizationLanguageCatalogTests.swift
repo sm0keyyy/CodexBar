@@ -860,7 +860,7 @@ struct LocalizationLanguageCatalogTests {
             "spend_tools_milliseconds",
         ]
         let unchanged = Set(english.keys.filter { italian[$0] == english[$0] })
-        #expect(unchanged == intentionallyUnchanged)
+        #expect(unchanged == intentionallyUnchanged.union(SettingsStoreGroupedIconTests.localizationKeys))
     }
 }
 

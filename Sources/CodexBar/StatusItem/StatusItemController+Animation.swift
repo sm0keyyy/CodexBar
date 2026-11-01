@@ -3,7 +3,7 @@ import CodexBarCore
 import QuartzCore
 
 extension StatusItemController {
-    private static let loadingPercentEpsilon = 0.0001
+    static let loadingPercentEpsilon = 0.0001
     private static let blinkActiveTickInterval: Duration = .milliseconds(75)
     private static let blinkIdleFallbackInterval: Duration = .seconds(1)
     static let loadingAnimationFPS: Double = 30.0
@@ -182,17 +182,17 @@ extension StatusItemController {
         }
     }
 
-    private func blinkAmount(for provider: UsageProvider) -> CGFloat {
+    func blinkAmount(for provider: UsageProvider) -> CGFloat {
         guard self.isBlinkingAllowed() else { return 0 }
         return self.blinkAmounts[provider.instanceID] ?? 0
     }
 
-    private func wiggleAmount(for provider: UsageProvider) -> CGFloat {
+    func wiggleAmount(for provider: UsageProvider) -> CGFloat {
         guard self.isBlinkingAllowed() else { return 0 }
         return self.wiggleAmounts[provider.instanceID] ?? 0
     }
 
-    private func tiltAmount(for provider: UsageProvider) -> CGFloat {
+    func tiltAmount(for provider: UsageProvider) -> CGFloat {
         guard self.isBlinkingAllowed() else { return 0 }
         return self.tiltAmounts[provider.instanceID] ?? 0
     }
@@ -251,6 +251,7 @@ extension StatusItemController {
         {
             return true
         }
+        if let result = self.applyGroupedIconIfEnabled(button: button, phase: phase) { return result }
         defer {
             let providers = self.stackedMergeIconProvidersIfActive().map { [$0.top, $0.bottom] }
                 ?? self.primaryProviderForUnifiedIcon().firstPartyProvider.map { [$0] } ?? []
@@ -537,7 +538,7 @@ extension StatusItemController {
         return false
     }
 
-    private func loadingBlinkAmount(for provider: UsageProvider, style: IconStyle, phase: Double?) -> CGFloat {
+    func loadingBlinkAmount(for provider: UsageProvider, style: IconStyle, phase: Double?) -> CGFloat {
         guard style == .warp, let phase else { return self.blinkAmount(for: provider) }
         let normalized = (sin(phase * 3) + 1) / 2
         return CGFloat(max(0, min(normalized, 1)))
@@ -705,7 +706,7 @@ extension StatusItemController {
         return true
     }
 
-    private func setButtonContent(image: NSImage, title: String?, tint: NSColor?, for button: NSStatusBarButton) {
+    func setButtonContent(image: NSImage, title: String?, tint: NSColor?, for button: NSStatusBarButton) {
         if let label = self.menuBarLayoutRenderer.pluginSummary.lastAccessibilityLabel,
            button.accessibilityTitle() == label
         {

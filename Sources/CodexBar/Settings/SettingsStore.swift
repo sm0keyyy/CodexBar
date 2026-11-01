@@ -729,7 +729,9 @@ extension SettingsStore {
             iCloudSyncIncludeSecrets: userDefaults.object(forKey: "iCloudSyncIncludeSecrets") as? Bool ?? true,
             iCloudSyncSnapshotsEnabled: userDefaults.object(forKey: "iCloudSyncSnapshotsEnabled") as? Bool ?? true,
             iCloudSyncShowFleetAccounts: userDefaults.object(forKey: "iCloudSyncShowFleetAccounts") as? Bool ?? true,
-            iCloudSyncDeviceID: iCloudSyncDeviceID)
+            iCloudSyncDeviceID: iCloudSyncDeviceID,
+            menuBarGroupsProviderIcons: userDefaults.bool(forKey: "menuBarGroupsProviderIcons"),
+            menuBarGroupedDailyBudgetUSD: userDefaults.double(forKey: "menuBarGroupedDailyBudgetUSD"))
     }
 
     private static func hadPreviousAppLaunch(userDefaults: UserDefaults) -> Bool {
