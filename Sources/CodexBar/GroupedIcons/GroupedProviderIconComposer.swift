@@ -73,8 +73,7 @@ enum GroupedProviderIconComposer {
         warning: GroupedTileWarning.Level = .none,
         flash: Bool = false) -> NSImage
     {
-        let weekly = color.withAlphaComponent(1)
-        let session = secondary != nil ? self.sessionColor(for: weekly) : weekly
+        let (session, weekly) = self.fillColors(for: color, split: secondary != nil)
         let track = self.trackColor(weekly: weekly, session: session)
         let rect = self.pillRect
         let fillRect = rect.insetBy(dx: 0.5, dy: 0)
@@ -124,22 +123,56 @@ enum GroupedProviderIconComposer {
         return image
     }
 
-    static func sessionColor(for weekly: NSColor) -> NSColor {
-        let original = self.lab(weekly)
-        for fraction in stride(from: 0.85, through: 1.0, by: 0.05) {
-            let candidate = weekly.blended(withFraction: fraction, of: .white)!
-            let measured = self.lab(candidate)
-            if measured.l - original.l >= 20, self.deltaE(original, measured) >= 15 { return candidate }
+    static func fillColors(for color: NSColor, split: Bool = true) -> (session: NSColor, weekly: NSColor) {
+        let rgb = color.usingColorSpace(.sRGB)!.withAlphaComponent(1)
+        var base = rgb
+        if self.lab(base).l > 85 {
+            for brightness in stride(from: rgb.brightnessComponent, through: 0, by: -0.025) {
+                base = NSColor(
+                    colorSpace: .sRGB,
+                    hue: rgb.hueComponent,
+                    saturation: rgb.saturationComponent,
+                    brightness: brightness,
+                    alpha: 1)
+                if self.lab(base).l <= 85 { break }
+            }
+        } else if self.lab(base).l < 35 {
+            for fraction in stride(from: 0.05, through: 1, by: 0.05) {
+                base = rgb.blended(withFraction: fraction, of: .white)!
+                if self.lab(base).l >= 35 { break }
+            }
         }
-        // Bright palettes cannot gain enough lightness; retain their hue in a darker neutral blend.
-        return weekly.blended(withFraction: 0.85, of: NSColor(white: 0.12, alpha: 1))!
+        let original = self.lab(base)
+        guard split else { return (base, base) }
+        if original.l >= 55 {
+            for brightness in stride(from: base.brightnessComponent, through: 0, by: -0.025) {
+                let candidate = NSColor(
+                    colorSpace: .sRGB,
+                    hue: base.hueComponent,
+                    saturation: base.saturationComponent == 0 ? 0 : max(0.8, base.saturationComponent),
+                    brightness: brightness,
+                    alpha: 1)
+                let measured = self.lab(candidate)
+                if original.l - measured.l >= 20.5, self.deltaE(original, measured) >= 15.5 {
+                    return (base, candidate)
+                }
+            }
+        }
+        for fraction in stride(from: 0.05, through: 1, by: 0.05) {
+            let candidate = base.blended(withFraction: fraction, of: .white)!
+            let measured = self.lab(candidate)
+            if measured.l - original.l >= 20.5, self.deltaE(original, measured) >= 15.5 {
+                return (candidate, base)
+            }
+        }
+        preconditionFailure("A normalized provider color must have a distinct quota shade")
     }
 
     static func trackColor(weekly: NSColor, session: NSColor) -> NSColor {
         let week = self.lab(weekly), short = self.lab(session)
         var selected = NSColor.black
         var separation = -Double.infinity
-        for component in stride(from: 0.0, through: 1.0, by: 0.25) {
+        for component in stride(from: 0.0, through: 0.25, by: 0.25) {
             let candidate = NSColor(srgbRed: component, green: component, blue: component, alpha: 1)
             let measured = self.lab(candidate)
             let distance = min(self.deltaE(week, measured), self.deltaE(short, measured))

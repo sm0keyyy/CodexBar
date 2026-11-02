@@ -149,8 +149,7 @@ struct GroupedProviderIconStatusItemTests {
         let warningFill = try #require(warned.colorAt(x: 20, y: 20))
         #expect(GroupedProviderIconComposer.deltaE(
             GroupedProviderIconComposer.lab(warningFill),
-            GroupedProviderIconComposer.lab(NSColor(srgbRed: 204 / 255, green: 124 / 255, blue: 94 / 255, alpha: 1))) <
-            1)
+            GroupedProviderIconComposer.lab(NSColor(srgbRed: 0.6, green: 0.2509090909, blue: 0.12, alpha: 1))) < 1)
         settings.setQuotaWarningWindowEnabled(.weekly, enabled: true)
         settings.setQuotaWarningThresholds(.weekly, thresholds: [50, 20])
         store._setSnapshotForTesting(UsageSnapshot(
@@ -312,13 +311,25 @@ struct GroupedProviderIconStatusItemTests {
                 #expect(!image.isTemplate, "\(state) \(appearanceName.rawValue)")
                 let bitmap = try #require(GroupedProviderIconComposer.rasterize(image))
                 let week = try #require(bitmap.colorAt(x: 63, y: 20)?.usingColorSpace(.sRGB))
-                let session = try #require(bitmap.colorAt(x: 63, y: 16))
+                let session = try #require(bitmap.colorAt(x: 63, y: 16)?.usingColorSpace(.sRGB))
+                let track = try #require(bitmap.colorAt(x: 95, y: 20))
                 #expect(week.alphaComponent == 1)
                 #expect(session.alphaComponent == 1)
                 #expect(week.saturationComponent >= 0.5)
                 #expect(week.hueComponent < 0.1)
                 #expect(GroupedProviderIconComposer.deltaE(
                     GroupedProviderIconComposer.lab(week), GroupedProviderIconComposer.lab(session)) >= 15)
+                let weekLab = GroupedProviderIconComposer.lab(week)
+                let sessionLab = GroupedProviderIconComposer.lab(session)
+                let trackLab = GroupedProviderIconComposer.lab(track)
+                #expect(abs(session.redComponent - 204 / 255) < 1.0 / 255)
+                #expect(abs(session.greenComponent - 124 / 255) < 1.0 / 255)
+                #expect(abs(session.blueComponent - 94 / 255) < 1.0 / 255)
+                #expect(sessionLab.l - weekLab.l >= 20)
+                #expect(weekLab.l <= 85 && sessionLab.l <= 85)
+                #expect(trackLab.l <= 30)
+                #expect(GroupedProviderIconComposer.deltaE(weekLab, trackLab) >= 15)
+                #expect(GroupedProviderIconComposer.deltaE(sessionLab, trackLab) >= 15)
             }
         }
     }
