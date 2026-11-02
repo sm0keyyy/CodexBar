@@ -491,65 +491,6 @@ enum CostUsageScanner {
         var isUnpriced: Bool?
     }
 
-    struct CodexUsageRow: Codable, Equatable {
-        let day: String
-        let model: String
-        let rawModel: String?
-        var turnID: String?
-        let eventIndex: Int?
-        let timestampUnixMs: Int64?
-        let input: Int
-        let cached: Int
-        let output: Int
-        let reasoning: Int?
-        let responseID: String?
-        let requestMirrorKeys: [String]?
-        /// Set only when the source supplied an authoritative monetary cost.
-        /// Estimated model-table pricing is resolved from token classes when reports are read.
-        var knownCostNanos: Int64?
-        var unpricedTokens: Int?
-        var pricingModel: String?
-        var pricingMode: String?
-        /// Classified on report copies only; never written to the cache.
-        var isIncludedInPlan: Bool?
-
-        init(
-            day: String,
-            model: String,
-            rawModel: String? = nil,
-            turnID: String?,
-            eventIndex: Int?,
-            timestampUnixMs: Int64? = nil,
-            input: Int,
-            cached: Int,
-            output: Int,
-            reasoning: Int? = nil,
-            knownCostNanos: Int64? = nil,
-            unpricedTokens: Int? = nil,
-            pricingModel: String? = nil,
-            pricingMode: String? = nil,
-            responseID: String? = nil,
-            requestMirrorKeys: [String]? = nil)
-        {
-            self.day = day
-            self.model = model
-            self.rawModel = rawModel
-            self.turnID = turnID
-            self.eventIndex = eventIndex
-            self.timestampUnixMs = timestampUnixMs
-            self.input = input
-            self.cached = cached
-            self.output = output
-            self.reasoning = reasoning.map { min(max(0, $0), max(0, output)) }
-            self.responseID = responseID
-            self.requestMirrorKeys = requestMirrorKeys
-            self.knownCostNanos = knownCostNanos
-            self.unpricedTokens = unpricedTokens
-            self.pricingModel = pricingModel
-            self.pricingMode = pricingMode
-        }
-    }
-
     struct CodexScanState {
         var contributingSessionIds: Set<String> = []
         var seenFileIds: Set<String> = []
@@ -4173,6 +4114,7 @@ enum CostUsageScanner {
 
         var days: [String: [String: [Int]]] = [:]
         var rows: [CodexUsageRow] = []
+        let rowStringTable = CodexUsageRowStringTable()
         var rowSourceEndOffsets: [Int: Int64] = [:]
         var tokenSnapshots: [CostUsageCodexTokenSnapshot] = []
         var lastAcceptedTokenTimestamp: String?
@@ -4478,7 +4420,8 @@ enum CostUsageScanner {
                 pricingModel: pricing?.pricingModel,
                 pricingMode: pricing?.pricingMode ?? observedMode,
                 responseID: responseID,
-                requestMirrorKeys: mirrorKeys))
+                requestMirrorKeys: mirrorKeys,
+                stringTable: rowStringTable))
             rowSourceEndOffsets[index] = endOffset
             return index
         }
@@ -4889,7 +4832,8 @@ enum CostUsageScanner {
                         timestampUnixMs: unixMilliseconds(from: record.timestamp),
                         input: deltaUsage.input,
                         cached: deltaUsage.cached,
-                        output: deltaUsage.output),
+                        output: deltaUsage.output,
+                        stringTable: rowStringTable),
                     mirror: (key, mirror?.owningResponseID))
                 return
             }

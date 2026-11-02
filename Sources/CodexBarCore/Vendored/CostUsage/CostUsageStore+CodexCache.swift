@@ -47,6 +47,7 @@ extension CostUsageStore {
     {
         var decoded = DecodedCodexUsageRows()
         let decoder = JSONDecoder()
+        decoder.userInfo[CodexUsageRowStringTable.key] = CodexUsageRowStringTable()
         let rowStrings = CostUsageRowStringPool()
         let readablePaths = Set(files.compactMap { file -> String? in
             guard let data = file.scanState.detailsPayload,
@@ -414,6 +415,7 @@ extension CostUsageStore {
     {
         recorder?.recordCacheConversion()
         let decoder = makeDecoder()
+        decoder.userInfo[CodexUsageRowStringTable.key] = CodexUsageRowStringTable()
         let rowStrings = CostUsageRowStringPool()
         var cache = CostUsageCache()
         cache.files.reserveCapacity(snapshot.files.count)
@@ -1201,7 +1203,8 @@ extension CostUsageStore {
     private static func aggregateRows(
         from aggregates: [CostUsageStoreDayAggregate]) -> [CostUsageScanner.CodexUsageRow]
     {
-        aggregates.flatMap { aggregate -> [CostUsageScanner.CodexUsageRow] in
+        let stringTable = CodexUsageRowStringTable()
+        return aggregates.flatMap { aggregate -> [CostUsageScanner.CodexUsageRow] in
             var rows: [CostUsageScanner.CodexUsageRow] = []
             func append(input: Int64, cached: Int64, output: Int64, mode: String) {
                 guard input != 0 || cached != 0 || output != 0 else { return }
@@ -1214,7 +1217,8 @@ extension CostUsageStore {
                     cached: Self.int(cached),
                     output: Self.int(output),
                     pricingModel: aggregate.model,
-                    pricingMode: mode))
+                    pricingMode: mode,
+                    stringTable: stringTable))
             }
             append(
                 input: aggregate.standardInputTokens,
@@ -1237,7 +1241,8 @@ extension CostUsageStore {
                     output: 0,
                     knownCostNanos: aggregate.authoritativeCostNanos,
                     pricingModel: aggregate.model,
-                    pricingMode: "standard"))
+                    pricingMode: "standard",
+                    stringTable: stringTable))
             }
             return rows
         }
