@@ -1,24 +1,10 @@
 import CoreFoundation
 import Foundation
 
-private final class PiSessionISO8601FormatterBox: @unchecked Sendable {
-    let lock = NSLock()
-    let withFractional: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter
-    }()
-
-    let plain: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime]
-        return formatter
-    }()
-}
-
 // swiftlint:disable:next type_body_length
 package enum PiSessionCostScanner {
     @TaskLocal static var sessionParseObserverForTesting: (@Sendable () -> Void)?
+    @TaskLocal static var sessionParseOffsetObserverForTesting: (@Sendable (Int64) -> Void)?
     @TaskLocal static var entryArchiveDecodeObserverForTesting: (@Sendable () -> Void)?
 
     struct Options {
@@ -108,7 +94,6 @@ package enum PiSessionCostScanner {
     private static let maxLineBytes = 16 * 1024 * 1024
     private static let sessionStartFilenameRegex = try? NSRegularExpression(
         pattern: "^(\\d{4}-\\d{2}-\\d{2})T(\\d{2})-(\\d{2})-(\\d{2})-(\\d{3})Z_")
-    private static let isoFormatterBox = PiSessionISO8601FormatterBox()
     private static let scanLock = NSLock()
 
     package struct GrokSourceSignature: Equatable, Sendable {
@@ -908,6 +893,7 @@ package enum PiSessionCostScanner {
         checkCancellation: CostUsageScanner.CancellationCheck? = nil) throws -> ParseResult
     {
         self.sessionParseObserverForTesting?()
+        self.sessionParseOffsetObserverForTesting?(startOffset)
         var sessionID = initialSessionID
         var currentModelContext = initialModelContext
         var contributions: [String: [String: [String: PiPackedUsage]]] = [:]
@@ -1233,7 +1219,7 @@ package enum PiSessionCostScanner {
             guard CFGetTypeID(number) != CFBooleanGetTypeID() else { return nil }
             raw = number.doubleValue
         case let string as String:
-            guard let numeric = Double(string) else { return self.parseISO(string) }
+            guard let numeric = Double(string) else { return CostUsageScanner.dateFromTimestamp(string) }
             raw = numeric
         default:
             return nil
@@ -1453,14 +1439,7 @@ extension PiSessionCostScanner {
         let minute = String(filename[Range(match.range(at: 3), in: filename)!])
         let second = String(filename[Range(match.range(at: 4), in: filename)!])
         let millis = String(filename[Range(match.range(at: 5), in: filename)!])
-        return self.parseISO("\(date)T\(hour):\(minute):\(second).\(millis)Z")
-    }
-
-    private static func parseISO(_ text: String) -> Date? {
-        self.isoFormatterBox.lock.lock()
-        defer { self.isoFormatterBox.lock.unlock() }
-        return self.isoFormatterBox.withFractional.date(from: text)
-            ?? self.isoFormatterBox.plain.date(from: text)
+        return CostUsageScanner.dateFromTimestamp("\(date)T\(hour):\(minute):\(second).\(millis)Z")
     }
 
     private static func localMidnight(_ date: Date, calendar: Calendar) -> Date {

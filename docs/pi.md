@@ -33,6 +33,8 @@ Assistant turns are bucketed by their own timestamp in the selected cost time zo
 
 The JSONL field walker keeps only accounting fields. It validates skipped content and thinking trees without materializing them. Integer token lexemes use the shared byte parser; fractional and string counters retain the existing rounded fallback. Recorded Claude/Codex USD retains JSONSerialization's `NSNumber.doubleValue` conversion and nanodollar rounding.
 
+Pi timestamps and session filenames use the shared native RFC 3339 parser. Historical ISO spellings retain the formatter fallback and its millisecond rounding.
+
 ## Count each source once
 
 With Pi disabled, unscoped Claude and Codex history can include their supported Pi/OMP backend partitions. With Pi and local cost tracking enabled, the app shows native Claude/Codex history alongside standalone Pi. Combined CLI selections follow the same rule. Account-scoped Codex history always remains native because machine-local Pi history does not establish account ownership. Overview and Usage & Spend use the same source accounting, including during cached hydration and completed Codex catch-up.
@@ -54,6 +56,8 @@ Incomplete refreshes can preserve a previously valid report with its original so
 Files replaced while being read leave the refresh incomplete. A pricing-catalog change requires a complete reparse before new estimates replace the prior report. An explicit refresh reparses Pi history even when file size and modification time are unchanged, including Pi usage shown under Claude or Codex.
 
 Unchanged refreshes reuse retained shards and write nothing, including when only the successful scan time advances. Appended records update only their source shard and the manifest. Wider scan coverage survives narrower report requests, so alternating windows does not reparse unchanged files. Explicit refresh still validates complete source contents; equal records produce identical archives and do not rewrite shards.
+
+Valid unpriced standalone backend rows do not force a full reparse on append. The scanner reads the committed tail; pricing changes still invalidate the full scan.
 
 Provider cost scans use separate serial utility lanes. Pi mirror reads share one scanner lock to avoid duplicate corpus parsing. Grok checks source scope, pricing, and file metadata before rebuilding its mirror report; unchanged sources reuse the published report.
 

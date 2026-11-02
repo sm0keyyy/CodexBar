@@ -1,8 +1,83 @@
+#if canImport(Darwin)
+import Darwin
+#endif
 import Foundation
 import Testing
 @testable import CodexBarCore
 
 struct PiSessionMemoryTests {
+    #if canImport(Darwin)
+    @Test
+    func `unpriced standalone appends read only the tail within thirty MiB`() throws {
+        let env = try CostUsageTestEnvironment()
+        defer { env.cleanup() }
+        let day = try env.makeLocalNoon(year: 2026, month: 7, day: 10)
+        let row = """
+        {"type":"message","timestamp":"2026-07-10T12:00:00.123Z","message":\
+        {"role":"assistant","provider":"openrouter","model":"typesafe/jev-latest",\
+        "usage":{"input":10,"output":5,"totalTokens":15}}}
+        """
+        let count = 128000
+        let file = try env.writePiSessionFile(
+            relativePath: "timestamps.jsonl",
+            contents: String(repeating: row + "\n", count: count))
+        let options = PiSessionCostScanner.Options(
+            piSessionsRoot: env.piSessionsRoot,
+            cacheRoot: env.cacheRoot,
+            refreshMinIntervalSeconds: 0,
+            environment: ["HOME": env.root.path])
+        try CostUsageClaudeFragments.$shared.withValue(CostUsageClaudeFragments()) {
+            _ = try PiSessionCostScanner.loadDailyReportResultCancellable(
+                provider: .pi, since: day, until: day, now: day,
+                options: options, checkCancellation: nil)
+            let handle = try FileHandle(forWritingTo: file)
+            defer { try? handle.close() }
+            let offset = try handle.seekToEnd()
+            try handle.write(contentsOf: Data((row + "\n").utf8))
+            let memory = RefreshMemory()
+            let before = memory.peak
+            let result = try PiSessionCostScanner.$sessionParseOffsetObserverForTesting.withValue({
+                memory.parsed($0)
+            }) {
+                try PiSessionCostScanner.loadDailyReportResultCancellable(
+                    provider: .pi, since: day, until: day, now: day.addingTimeInterval(1),
+                    options: options, checkCancellation: { memory.record() })
+            }
+            memory.record()
+            #expect(result.isComplete)
+            #expect(result.report.summary?.totalTokens == (count + 1) * 15)
+            #expect(result.report.summary?.totalCostUSD == nil)
+            #expect(memory.offsets == [Int64(offset)])
+            #expect(memory.peak - min(before, memory.peak) <= 30 * 1024 * 1024)
+        }
+    }
+
+    private final class RefreshMemory: @unchecked Sendable {
+        private let lock = NSLock()
+        private var maximum: UInt64 = 0
+        private var starts: [Int64] = []
+
+        init() { self.record() }
+
+        var peak: UInt64 { self.lock.withLock { self.maximum } }
+        var offsets: [Int64] { self.lock.withLock { self.starts } }
+
+        func parsed(_ offset: Int64) { self.lock.withLock { self.starts.append(offset) } }
+
+        func record() {
+            var info = task_vm_info_data_t()
+            var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<natural_t>.size)
+            let status = withUnsafeMutablePointer(to: &info) {
+                $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                    task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count)
+                }
+            }
+            precondition(status == KERN_SUCCESS)
+            self.lock.withLock { self.maximum = max(self.maximum, info.phys_footprint) }
+        }
+    }
+    #endif
+
     @Test
     func `unchanged refreshes reuse file buffers and append rewrites only one file`() throws {
         let env = try CostUsageTestEnvironment()
