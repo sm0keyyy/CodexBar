@@ -33,6 +33,7 @@ public struct CostUsageFetcher: Sendable {
 
     package static func piRootScope(environment: [String: String]) async throws -> String {
         let contexts = await LocalAgentSessionScanner().piSessionProcessContexts(environment: environment)
+        // Provider-specific by design: Pi root discovery must not wait behind native cost scans.
         return try await CostUsageScanExecutor.run(provider: .pi) { checkCancellation in
             try checkCancellation()
             return PiSessionCostScanner.scopeFingerprint(
@@ -618,7 +619,7 @@ public struct CostUsageFetcher: Sendable {
         if provider == .opencodego {
             let home = environment["HOME"].map { URL(fileURLWithPath: $0, isDirectory: true) }
                 ?? FileManager.default.homeDirectoryForCurrentUser
-            return try await CostUsageScanExecutor.run(provider: .opencodego) { _ in
+            return try await CostUsageScanExecutor.run(provider: provider) { _ in
                 let usage = try OpenCodeGoLocalUsageReader(homeDirectory: home).fetch(
                     now: now, historyDays: clampedHistoryDays, calendar: fallbackCalendar)
                 return CostUsageTokenResult(snapshot: usage.toCostUsageTokenSnapshot(
@@ -1345,6 +1346,7 @@ public struct CostUsageFetcher: Sendable {
         scannerOptions overrideScannerOptions: CostUsageScanner.Options? = nil) async
         -> CostUsageTokenActivityCache?
     {
+        // Provider-specific by design: Codex activity reads serialize with Codex ledger writes.
         try? await CostUsageScanExecutor.run(provider: .codex) { _ -> CostUsageTokenActivityCache? in
             // Provider-specific by design: cached activity is read from the Codex ledger's fixed scanner scope.
             let options = Self.resolvedScannerOptions(
@@ -1426,8 +1428,7 @@ public struct CostUsageFetcher: Sendable {
             []
         }
 
-        // Snapshot assembly can touch many SQLite rows; keep it off the cooperative pool
-        // alongside the scans themselves.
+        // Provider-specific by design: Codex snapshot assembly shares its scan lane off the cooperative pool.
         return try? await CostUsageScanExecutor.run(provider: .codex) { check -> CachedCodexTokenSnapshotResult? in
             try check()
             let clampedHistoryDays = max(1, historyDays)
@@ -1607,6 +1608,7 @@ public struct CostUsageFetcher: Sendable {
         hidePersonalInfo: Bool,
         scannerOptions overrideScannerOptions: CostUsageScanner.Options? = nil) async -> CodexLocalProjectUsageSnapshot?
     {
+        // Provider-specific by design: Codex project snapshots serialize with their ledger's scans.
         let cachedSnapshot: CodexLocalProjectUsageSnapshot?? = try? await CostUsageScanExecutor
             .run(provider: .codex) { _ in
                 let options = Self.codexLocalScannerOptions(
@@ -1634,6 +1636,7 @@ public struct CostUsageFetcher: Sendable {
             codexHomePath: codexHomePath,
             overrideScannerOptions: overrideScannerOptions)
         let scanOptions = options
+        // Provider-specific by design: Codex project indexing shares the native Codex scan lane.
         let snapshot = try await CostUsageScanExecutor.run(provider: .codex) { checkCancellation in
             try CodexLocalProjectUsageIndexer.loadSnapshot(
                 now: now,
@@ -1650,6 +1653,7 @@ public struct CostUsageFetcher: Sendable {
         codexHomePath: String? = nil,
         scannerOptions overrideScannerOptions: CostUsageScanner.Options? = nil) async
     {
+        // Provider-specific by design: Codex sidecar removal cannot race a Codex scan.
         _ = try? await CostUsageScanExecutor.run(provider: .codex) { _ in
             let options = Self.codexLocalScannerOptions(
                 codexHomePath: codexHomePath,
@@ -1740,6 +1744,7 @@ public struct CostUsageFetcher: Sendable {
         calendar: Calendar = .current,
         pricingCacheRoot: URL?) async throws -> CostUsageTokenSnapshot?
     {
+        // Provider-specific by design: Antigravity database work uses its own provider lane.
         let reportResult = try await CostUsageScanExecutor.run(provider: .antigravity) { checkCancellation in
             try AntigravityLocalReader.makeDailyReportWithStatus(
                 context: context,

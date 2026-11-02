@@ -35,6 +35,7 @@ final class GrokDailyCostCache {
         self.task = Task { [weak self] in
             let result: Result<Scan, Error>
             do {
+                // Provider-specific by design: Grok mirror work must not queue ahead of native provider results.
                 let scan = try await CostUsageScanExecutor.run(provider: .grok) { _ in
                     defer { MemoryPressureRelief.releaseFreeMallocPages() }
                     return try autoreleasepool {
