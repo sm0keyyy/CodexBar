@@ -220,6 +220,78 @@ struct GroupedProviderIconStatusItemTests {
         #expect(button.toolTip?.contains("75%") == true)
     }
 
+    @Test func `cost sweep fixes status width and every pill anchor with exact tooltips`() throws {
+        let image = try #require(GroupedProviderIconComposer.compose(
+            tiles: [NSColor.red, .green, .blue].map {
+                GroupedProviderIconComposer.pill(primary: 50, secondary: 75, color: $0, stale: false)
+            }, backingScale: 2))
+        let button = NSButton(frame: NSRect(x: 0, y: 0, width: 200, height: 22))
+        button.isBordered = false
+        button.imageScaling = .scaleNone
+        let cell = try #require(button.cell)
+        let reserved = GroupedDailyCost.reservedDisplayTexts(preferredCurrency: "USD")
+        var cents = Set(stride(from: 0, through: 99999, by: 7))
+        for dollar in 0...999 {
+            for offset in -1...1 where (0...99999).contains(dollar * 100 + offset) {
+                cents.insert(dollar * 100 + offset)
+            }
+        }
+        cents.formUnion([9998, 9999, 10000, 10001, 99999])
+        cents.formUnion([999_899, 999_900, 999_999, 1_000_000, 1_000_001, 1_099_999, 1_234_567, 99_999_999])
+        for highContrast in [false, true] {
+            var expectedWidth: CGFloat?
+            var expectedPillPositions: [CGFloat]?
+            for value in cents.sorted() {
+                let summary = GroupedDailyCost.summary(inputs: [
+                    .init(name: "Codex", value: .exact(Double(value) / 100)),
+                ])
+                let width = StatusItemController.applyGroupedButtonContent(
+                    image: image,
+                    costText: summary.displayText,
+                    reservedCostTexts: reserved,
+                    overBudget: value > 10000,
+                    highContrast: highContrast,
+                    for: button)
+                button.setFrameSize(NSSize(width: width, height: 22))
+                let origin = highContrast
+                    ? cell.titleRect(forBounds: button.bounds).minX
+                    : cell.imageRect(forBounds: button.bounds).minX
+                let positions = [origin, origin + 25.5, origin + 51]
+                if let expectedWidth, let expectedPillPositions {
+                    #expect(width == expectedWidth)
+                    #expect(positions == expectedPillPositions)
+                } else {
+                    expectedWidth = width
+                    expectedPillPositions = positions
+                }
+                let exact = UsageFormatter.usdString(Double(value) / 100)
+                #expect(summary.lines.first?.contains(exact) == true)
+                #expect(summary.totalUSD == Double(value) / 100)
+                if value < 10000 { #expect(summary.displayText == exact) }
+                if value >= 10000 { #expect(summary.displayText?.contains(".") == false) }
+            }
+        }
+    }
+
+    @Test func `whole dollar tooltip updates do not redraw unchanged pills`() throws {
+        let (settings, _, controller) = self.harness()
+        let old = GrokDailyCostCache.shared.today
+        defer { controller.releaseStatusItemsForTesting(); GrokDailyCostCache.shared.today = old }
+        settings.costUsageEnabled = true
+        GrokDailyCostCache.shared.today = GrokDayCost(usd: 123.01)
+        let button = try #require(controller.statusItem.button)
+        controller.applyIcon(phase: nil)
+        let image = button.image
+        let width = controller.statusItem.length
+        #expect(button.title.contains("$123"))
+        #expect(button.toolTip?.contains("$123.01") == true)
+        GrokDailyCostCache.shared.today = GrokDayCost(usd: 123.02)
+        #expect(controller.applyIcon(phase: nil))
+        #expect(button.image === image)
+        #expect(controller.statusItem.length == width)
+        #expect(button.toolTip?.contains("$123.02") == true)
+    }
+
     @Test func `Claude brand survives stale refreshing highlight and inactive contrast composition`() throws {
         let (settings, store, controller) = self.harness()
         defer { controller.releaseStatusItemsForTesting() }
