@@ -28,13 +28,14 @@ extension StatusItemController {
     func applyGroupedIconIfEnabled(button: NSStatusBarButton, phase _: Double?) -> Bool? {
         guard let providers = self.groupedProviders else {
             if button.toolTip != nil {
+                button.alignment = .center
+                button.font = NSFont.menuBarFont(ofSize: 0)
                 button.toolTip = nil
                 self.lastAppliedMergedIconRenderSignature = nil
             }
             return nil
         }
         self.updateMenuBarSourceDescription(for: button, providers: providers)
-        self.statusItem.length = NSStatusItem.variableLength
         let tiles = providers.map { self.groupedTile(provider: $0, button: button) }
         let now = Date()
         let costInputs = self.groupedCostInputs(now: now)
@@ -56,12 +57,15 @@ extension StatusItemController {
             "mode=grouped",
             "cost=\(summary.displayText ?? "nil")",
             "budget=\(overBudget)",
+            "currency=\(self.settings.preferredCurrencyCode)",
+            "costEnabled=\(self.settings.costUsageEnabled)",
             "appearance=\(button.effectiveAppearance.name.rawValue)",
             "contrast=\(self.shouldUseHighContrastStatusItemContent)",
             "scale=\(button.window?.backingScaleFactor ?? 2)",
         ] + tiles.map(\.signature))
             .joined(separator: "|")
-        if signature == self.lastAppliedMergedIconRenderSignature, button.toolTip == tooltip {
+        if signature == self.lastAppliedMergedIconRenderSignature {
+            if button.toolTip != tooltip { button.toolTip = tooltip }
             self.noteIconPerfRender(skipped: true)
             return true
         }
@@ -213,27 +217,51 @@ extension StatusItemController {
     }
 
     func setGroupedButtonContent(image: NSImage, costText: String?, overBudget: Bool, for button: NSStatusBarButton) {
-        // Clear a previous amber attributed title before returning to native system text.
-        button.attributedTitle = NSAttributedString()
-        self.setButtonContent(image: image, title: costText, tint: nil, for: button)
-        guard overBudget, let costText else { return }
-        let title = Self.buttonTitle(
-            costText,
-            hasImage: true,
-            isDebugApp: Self.isDebugApp(bundleIdentifier: Bundle.main.bundleIdentifier))
-        if self.shouldUseHighContrastStatusItemContent {
-            let attributed = NSMutableAttributedString(attributedString: Self.highContrastButtonTitle(
-                image: image,
-                title: title))
-            attributed.addAttribute(
-                .foregroundColor,
-                value: NSColor.systemOrange,
-                range: NSRange(location: 1, length: attributed.length - 1))
-            button.attributedTitle = attributed
-        } else {
-            button.attributedTitle = NSAttributedString(string: title, attributes: [
-                .foregroundColor: NSColor.systemOrange, .font: NSFont.menuBarFont(ofSize: 0),
-            ])
+        let width = Self.applyGroupedButtonContent(
+            image: image,
+            costText: costText,
+            reservedCostTexts: self.settings.costUsageEnabled
+                ? GroupedDailyCost.reservedDisplayTexts(preferredCurrency: self.settings.preferredCurrencyCode) : [],
+            overBudget: overBudget,
+            highContrast: self.shouldUseHighContrastStatusItemContent,
+            isDebugApp: Self.isDebugApp(bundleIdentifier: Bundle.main.bundleIdentifier),
+            for: button)
+        self.statusItem.length = self.settings.costUsageEnabled ? width : NSStatusItem.variableLength
+    }
+
+    static func applyGroupedButtonContent(
+        image: NSImage,
+        costText: String?,
+        reservedCostTexts: [String],
+        overBudget: Bool = false,
+        highContrast: Bool,
+        isDebugApp: Bool = false,
+        for button: NSButton) -> CGFloat
+    {
+        let font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+        let title = Self.buttonTitle(costText, hasImage: true, isDebugApp: isDebugApp)
+        let visibleTitle = title.isEmpty && !reservedCostTexts.isEmpty ? " " : title
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font, .foregroundColor: overBudget ? NSColor.systemOrange : NSColor.labelColor,
+        ]
+        let attributed = highContrast
+            ? NSMutableAttributedString(attributedString: Self.highContrastButtonTitle(
+                image: image, title: visibleTitle))
+            : NSMutableAttributedString(string: visibleTitle, attributes: attributes)
+        if highContrast, attributed.length > 1 {
+            attributed.addAttributes(attributes, range: NSRange(location: 1, length: attributed.length - 1))
         }
+        button.attributedTitle = attributed
+        button.image = highContrast ? nil : image
+        button.imagePosition = highContrast ? .noImage : (visibleTitle.isEmpty ? .imageOnly : .imageLeft)
+        // Anchor the image at the leading edge, not the center of the changing title.
+        button.alignment = .left
+        button.lineBreakMode = .byClipping
+        let reservedWidth = reservedCostTexts.map {
+            NSAttributedString(
+                string: Self.buttonTitle($0, hasImage: true, isDebugApp: isDebugApp),
+                attributes: attributes).size().width
+        }.max() ?? NSAttributedString(string: title, attributes: attributes).size().width
+        return ceil(image.size.width + reservedWidth) + 10
     }
 }

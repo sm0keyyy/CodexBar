@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Grouped menu bar: keep pills anchored with a fixed-width, tabular cost label. Show whole currency units from 100 and compact thousands from 10,000. Keep exact cents in the tooltip.
+
 ## 0.83.0 — 2026-10-31
 
 ### Highlights

@@ -47,4 +47,42 @@ struct GroupedDailyCostTests {
         #expect(!partial.isOverBudget(10))
         #expect(partial.isOverBudget(9.99))
     }
+
+    @Test func `whole currency label keeps cents in tooltip and exact total`() {
+        for (usd, text, exact) in [
+            (0.0, "$0.00", "$0.00"),
+            (9.99, "$9.99", "$9.99"),
+            (99.99, "$99.99", "$99.99"),
+            (100.0, "$100", "$100.00"),
+            (123.45, "$123", "$123.45"),
+            (999.99, "$999", "$999.99"),
+            (9999.0, "$9,999", "$9,999.00"),
+            (9999.99, "$9,999", "$9,999.99"),
+            (10000.0, "$10k", "$10,000.00"),
+            (10999.99, "$10k", "$10,999.99"),
+            (12345.67, "$12k", "$12,345.67"),
+            (999_999.99, "$999k", "$999,999.99"),
+        ] {
+            let summary = GroupedDailyCost.summary(inputs: [.init(name: "Codex", value: .exact(usd))])
+            #expect(summary.displayText == text)
+            #expect(summary.totalUSD == usd)
+            #expect(summary.lines.first?.contains(exact) == true)
+        }
+    }
+
+    @Test func `unknown only estimates name unpriced models without invented zero dollars`() {
+        let unknown = GroupedDailyCost.summary(inputs: [
+            .init(name: "Grok", value: .estimate(0, unpricedModels: ["unknown-model"])),
+        ])
+        #expect(unknown.totalUSD == nil)
+        #expect(unknown.displayText == nil)
+        #expect(!unknown.lines.joined().contains("$0"))
+        #expect(unknown.lines.joined().contains("unknown-model"))
+        let mixed = GroupedDailyCost.summary(inputs: [
+            .init(name: "Grok", value: .estimate(1.25, unpricedModels: ["unknown-model"])),
+        ])
+        #expect(mixed.totalUSD == 1.25)
+        #expect(mixed.lines.joined().contains("$1.25"))
+        #expect(mixed.lines.joined().contains("unknown-model"))
+    }
 }
