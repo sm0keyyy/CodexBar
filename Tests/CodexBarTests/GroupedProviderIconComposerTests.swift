@@ -100,8 +100,9 @@ struct GroupedProviderIconComposerTests {
         }
         let one = try #require(GroupedProviderIconComposer.rasterize(single))
         let two = try #require(GroupedProviderIconComposer.rasterize(split))
-        let week = GroupedProviderIconComposer.lab(color)
-        let session = GroupedProviderIconComposer.lab(GroupedProviderIconComposer.sessionColor(for: color))
+        let fills = GroupedProviderIconComposer.fillColors(for: color)
+        let week = GroupedProviderIconComposer.lab(fills.weekly)
+        let session = GroupedProviderIconComposer.lab(fills.session)
         func measured(_ bitmap: NSBitmapImageRep, _ x: Int, _ y: Int) throws -> (l: Double, a: Double, b: Double) {
             try GroupedProviderIconComposer.lab(#require(bitmap.colorAt(x: x, y: y)))
         }
@@ -139,8 +140,9 @@ struct GroupedProviderIconComposerTests {
         #expect(quota.longest?.remainingPercent == 62)
         let accent = ProviderDescriptorRegistry.descriptor(for: .claude).branding.color
         let color = NSColor(srgbRed: accent.red, green: accent.green, blue: accent.blue, alpha: 1)
-        let week = GroupedProviderIconComposer.lab(color)
-        let short = GroupedProviderIconComposer.lab(GroupedProviderIconComposer.sessionColor(for: color))
+        let fills = GroupedProviderIconComposer.fillColors(for: color)
+        let week = GroupedProviderIconComposer.lab(fills.weekly)
+        let short = GroupedProviderIconComposer.lab(fills.session)
         var measurements: [[String: Any]] = []
         for name in [NSAppearance.Name.aqua, .darkAqua] {
             let appearance = try #require(NSAppearance(named: name))
@@ -210,7 +212,14 @@ struct GroupedProviderIconComposerTests {
                 let weekLab = GroupedProviderIconComposer.lab(week)
                 let sessionLab = GroupedProviderIconComposer.lab(session)
                 let trackLab = GroupedProviderIconComposer.lab(track)
-                #expect(GroupedProviderIconComposer.deltaE(weekLab, GroupedProviderIconComposer.lab(color)) < 1)
+                #expect(GroupedProviderIconComposer.deltaE(sessionLab, GroupedProviderIconComposer.lab(color)) < 1)
+                #expect(abs(weekLab.l - sessionLab.l) >= 20)
+                #expect(weekLab.l < sessionLab.l)
+                #expect(weekLab.l <= 85 && sessionLab.l <= 85)
+                #expect(trackLab.l <= 30)
+                let sessionRGB = try #require(session.usingColorSpace(.sRGB))
+                #expect(abs(week.hueComponent - sessionRGB.hueComponent) < 0.01)
+                #expect(week.saturationComponent >= 0.79)
                 #expect(GroupedProviderIconComposer.deltaE(weekLab, sessionLab) >= 15)
                 #expect(GroupedProviderIconComposer.deltaE(weekLab, trackLab) >= 15)
                 #expect(GroupedProviderIconComposer.deltaE(sessionLab, trackLab) >= 15)
@@ -230,11 +239,13 @@ struct GroupedProviderIconComposerTests {
             let appearance = try #require(NSAppearance(named: name))
             for provider in UsageProvider.allCases {
                 let accent = ProviderDescriptorRegistry.descriptor(for: provider).branding.color
-                let weekly = NSColor(srgbRed: accent.red, green: accent.green, blue: accent.blue, alpha: 1)
+                let color = NSColor(srgbRed: accent.red, green: accent.green, blue: accent.blue, alpha: 1)
                 appearance.performAsCurrentDrawingAppearance {
-                    let session = GroupedProviderIconComposer.sessionColor(for: weekly)
-                    let week = GroupedProviderIconComposer.lab(weekly)
-                    let short = GroupedProviderIconComposer.lab(session)
+                    let fills = GroupedProviderIconComposer.fillColors(for: color)
+                    let week = GroupedProviderIconComposer.lab(fills.weekly)
+                    let short = GroupedProviderIconComposer.lab(fills.session)
+                    #expect(week.l <= 85, "\(provider.rawValue) \(name.rawValue)")
+                    #expect(short.l <= 85, "\(provider.rawValue) \(name.rawValue)")
                     let deltaL = abs(short.l - week.l)
                     let deltaE = GroupedProviderIconComposer.deltaE(short, week)
                     #expect(deltaL >= 20, "\(provider.rawValue) \(name.rawValue)")
@@ -242,12 +253,13 @@ struct GroupedProviderIconComposerTests {
                     let image = GroupedProviderIconComposer.pill(
                         primary: 50,
                         secondary: 50,
-                        color: weekly,
+                        color: color,
                         stale: false)
                     if let bitmap = GroupedProviderIconComposer.rasterize(image),
                        let empty = bitmap.colorAt(x: 40, y: 20)
                     {
                         let track = GroupedProviderIconComposer.lab(empty)
+                        #expect(track.l <= 30)
                         let sessionTrack = GroupedProviderIconComposer.deltaE(short, track)
                         let weeklyTrack = GroupedProviderIconComposer.deltaE(week, track)
                         #expect(sessionTrack >= 15)
@@ -256,6 +268,7 @@ struct GroupedProviderIconComposerTests {
                             "provider": provider.rawValue, "appearance": name.rawValue,
                             "deltaL": deltaL, "deltaE2000": deltaE,
                             "sessionTrack": sessionTrack, "weeklyTrack": weeklyTrack,
+                            "sessionL": short.l, "weeklyL": week.l,
                             "darkerSession": short.l < week.l,
                         ])
                     } else {
@@ -267,5 +280,59 @@ struct GroupedProviderIconComposerTests {
         #expect(measurements.count == UsageProvider.allCases.count * 2)
         let json = try JSONSerialization.data(withJSONObject: measurements, options: [.sortedKeys])
         try print("GROUPED_PILL_COLOR_METRICS \(#require(String(bytes: json, encoding: .utf8)))")
+    }
+
+    @Test(arguments: [false, true], 0..<6)
+    func `all provider rendered fills avoid near white in every state`(split: Bool, state: Int) throws {
+        for name in [NSAppearance.Name.aqua, .darkAqua] {
+            let appearance = try #require(NSAppearance(named: name))
+            for provider in UsageProvider.allCases {
+                let accent = ProviderDescriptorRegistry.descriptor(for: provider).branding.color
+                let color = NSColor(srgbRed: accent.red, green: accent.green, blue: accent.blue, alpha: 1)
+                var rendered: NSBitmapImageRep?
+                appearance.performAsCurrentDrawingAppearance {
+                    rendered = GroupedProviderIconComposer.rasterize(GroupedProviderIconComposer.pill(
+                        primary: 50,
+                        secondary: split ? 50 : nil,
+                        color: color,
+                        stale: state == 1,
+                        loading: state == 2,
+                        warning: state == 3 ? .amber : state >= 4 ? .red : .none,
+                        flash: state == 5))
+                }
+                let bitmap = try #require(rendered)
+                let session = try GroupedProviderIconComposer.lab(#require(bitmap.colorAt(x: 12, y: 16)))
+                let weekly = try GroupedProviderIconComposer.lab(#require(bitmap.colorAt(x: 12, y: 20)))
+                let track = try GroupedProviderIconComposer.lab(#require(bitmap.colorAt(x: 40, y: 20)))
+                #expect(session.l <= 85, "\(provider.rawValue) \(name.rawValue) \(state)")
+                #expect(weekly.l <= 85, "\(provider.rawValue) \(name.rawValue) \(state)")
+                #expect(track.l <= 30)
+                #expect(GroupedProviderIconComposer.deltaE(session, track) >= 15)
+                #expect(GroupedProviderIconComposer.deltaE(weekly, track) >= 15)
+                if split {
+                    #expect(abs(session.l - weekly.l) >= 20, "\(provider.rawValue) \(name.rawValue) \(state)")
+                    #expect(GroupedProviderIconComposer.deltaE(session, weekly) >= 15)
+                }
+            }
+        }
+    }
+
+    @Test func `render Claude pill proof at native size`() throws {
+        let directory = ProcessInfo.processInfo.environment["CODEXBAR_GROUPED_PILL_PROOF_DIR"]
+            .map { URL(fileURLWithPath: $0, isDirectory: true) }
+        if let directory { try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true) }
+        let color = NSColor(srgbRed: 204 / 255, green: 124 / 255, blue: 94 / 255, alpha: 1)
+        for name in [NSAppearance.Name.aqua, .darkAqua] {
+            let appearance = try #require(NSAppearance(named: name))
+            var rendered: NSBitmapImageRep?
+            appearance.performAsCurrentDrawingAppearance {
+                rendered = GroupedProviderIconComposer.rasterize(GroupedProviderIconComposer.pill(
+                    primary: 95, secondary: 62, color: color, stale: false))
+            }
+            let bitmap = try #require(rendered)
+            #expect(bitmap.size == NSSize(width: 24, height: 18))
+            let png = try #require(bitmap.representation(using: .png, properties: [:]))
+            if let directory { try png.write(to: directory.appendingPathComponent("claude-\(name.rawValue).png")) }
+        }
     }
 }
