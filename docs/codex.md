@@ -537,6 +537,11 @@ Every participating CLI must support schema 2. This opt-in mode does not change 
     reconciliation, and persisted caches keep the ledger, including native turn-performance data.
   - Cached Codex rows share byte-identical turn-ID strings within each read, reducing retained memory for repeated turns.
     The temporary string index ends with that read; persisted row values, Unicode spellings, and pricing stay unchanged.
+    Day, model, raw-model, pricing-model, and pricing-mode labels use 32-bit IDs in a table scoped to
+    each transcript scan or cache read. Row access resolves the original strings before tariff lookup
+    and serialization. Copies keep independent pricing IDs; tables preserve exact UTF-8 spellings.
+    Request identities and rows remain resident because resumed mirror reconciliation, deduplication,
+    request-level pricing, persistence, and turn analytics still read them after the daily fold.
   - Report, scan-baseline, and workspace reads decode stored usage rows as SQLite yields them, avoiding a second copy of the
     history as encoded payloads. Metadata and rows share one read transaction; filesystem reconciliation runs after
     it closes. Row order, pricing, malformed-row fallback, and incomplete coverage keep their existing behavior.

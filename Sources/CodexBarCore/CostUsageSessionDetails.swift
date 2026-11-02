@@ -128,6 +128,7 @@ public enum CostUsageSessionDetailLoader {
         guard sqlite3_step(statement) == SQLITE_ROW else { throw CostUsageSessionDetailError.unavailable }
         let file = try CostUsageStore.decodeFile(statement)
         let decoder = JSONDecoder()
+        decoder.userInfo[CodexUsageRowStringTable.key] = CodexUsageRowStringTable()
         var rows: [CostUsageScanner.CodexUsageRow] = []
         var readError: Error?
         try CostUsageStore.forEachUsageRow(database, path: path) { stored in

@@ -65,6 +65,7 @@ extension CostUsageScanner {
         if let rows = usage.codexRows, !rows.isEmpty {
             return rows
         }
+        let stringTable = CodexUsageRowStringTable()
         return usage.days.flatMap { day, models in
             models.map { model, packed in
                 CodexUsageRow(
@@ -77,7 +78,8 @@ extension CostUsageScanner {
                     output: packed[safe: 2] ?? 0,
                     knownCostNanos: usage.codexCostNanos?[day]?[model],
                     pricingModel: model,
-                    pricingMode: usage.codexPriorityTokens?[day]?[model] == nil ? "standard" : "priority")
+                    pricingMode: usage.codexPriorityTokens?[day]?[model] == nil ? "standard" : "priority",
+                    stringTable: stringTable)
             }
         }
     }

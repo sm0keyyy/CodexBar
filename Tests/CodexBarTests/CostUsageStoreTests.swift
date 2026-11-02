@@ -1019,6 +1019,7 @@ extension CostUsageStoreTests {
         "f8577be489f4c13d",
         "d9a91f31d0addc15",
         "7b1b44d62a411215",
+        "6b42e42bafad1922",
     ]
 
     @Test(arguments: Self.testedPredecessorParserHashes)
@@ -1099,7 +1100,9 @@ extension CostUsageStoreTests {
         let after = await current.readSnapshot()
         var expected = before
         // Only predecessors from before the Fast pricing correction need report totals discarded.
-        if predecessorHash != "f98b2d0afc00443c" { expected.metadata.previousReportPayload = nil }
+        if !["f98b2d0afc00443c", "6b42e42bafad1922"].contains(predecessorHash) {
+            expected.metadata.previousReportPayload = nil
+        }
         #expect(after == expected)
         let legacy = try JSONDecoder().decode(
             CostUsageScanner.CodexBufferedFastLine.self, from: #require(after.bufferedLines.first).payload)

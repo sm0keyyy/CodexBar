@@ -285,6 +285,7 @@ struct CodexWorkspaceUsageSidecar: Sendable {
         """
         guard let eventStatement = Self.prepare(db, eventSQL) else { throw SidecarError.statementFailed }
         defer { sqlite3_finalize(eventStatement) }
+        let stringTable = CodexUsageRowStringTable()
         while sqlite3_step(eventStatement) == SQLITE_ROW {
             guard let path = Self.columnString(eventStatement, at: 0),
                   var usage = cache.files[path],
@@ -306,7 +307,8 @@ struct CodexWorkspaceUsageSidecar: Sendable {
                 knownCostNanos: Self.columnInt64(eventStatement, at: 10),
                 unpricedTokens: Self.columnInt64(eventStatement, at: 11).map(Int.init),
                 pricingModel: Self.columnString(eventStatement, at: 12),
-                pricingMode: Self.columnString(eventStatement, at: 13)))
+                pricingMode: Self.columnString(eventStatement, at: 13),
+                stringTable: stringTable))
             usage.codexRows = rows
             cache.files[path] = usage
         }
