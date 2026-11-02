@@ -35,6 +35,8 @@ final class GrokDailyCostCache {
         self.task = Task { [weak self] in
             let result: Result<Scan, Error>
             do {
+                await CostUsagePricing.refreshGrokPricingIfNeeded(
+                    now: now, unpricedModels: self?.today?.unpricedModels ?? [])
                 // Provider-specific by design: Grok mirror work must not queue ahead of native provider results.
                 let scan = try await CostUsageScanExecutor.run(provider: .grok) { _ in
                     defer { MemoryPressureRelief.releaseFreeMallocPages() }
@@ -100,6 +102,8 @@ final class GrokDailyCostCache {
         let start = calendar.startOfDay(for: now)
         let log = home.appendingPathComponent("logs/unified.jsonl")
         var parts = [String(start.timeIntervalSince1970)]
+        let pricing = CostUsagePricing.GrokResolver()
+        parts.append("pricing:\(pricing.fingerprint)")
         let mirror = CostUsageTokenSnapshot.entry(in: mirrors.data, forLocalDayContaining: now, calendar: calendar)
         let unknown = mirror?.modelBreakdowns?.filter { $0.costUSD == nil }.map(\.modelName) ?? []
         parts.append("mirrors:\(mirror?.costUSD ?? 0):\(mirror?.totalTokens ?? 0):\(mirror?.requestCount ?? 0)")
@@ -128,7 +132,8 @@ final class GrokDailyCostCache {
             unifiedLog: self.text(log),
             sessions: fixtures,
             now: now,
-            calendar: calendar)
+            calendar: calendar,
+            pricing: pricing)
         cost.usd += mirror?.costUSD ?? 0
         cost.requestCount += mirror?.requestCount ?? 0
         cost.unpricedModels = Array(Set(cost.unpricedModels + unknown)).sorted()

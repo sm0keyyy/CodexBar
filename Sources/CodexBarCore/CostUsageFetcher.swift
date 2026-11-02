@@ -689,8 +689,8 @@ public struct CostUsageFetcher: Sendable {
             let piDaily = piScanResult.report
             if allowPricingRefresh, retryUnknownPricing {
                 var didRefresh = false
-                // Provider-specific by design: Pi model names reuse the Codex and Claude pricing catalogs.
-                for pricingProvider in [UsageProvider.codex, UsageProvider.claude] {
+                // Pi model names reuse the shared provider pricing catalogs.
+                for pricingProvider in [UsageProvider.codex, UsageProvider.claude, UsageProvider.grok] {
                     if let request = Self.unknownPricingRefreshRequest(
                         provider: pricingProvider,
                         daily: piDaily,
@@ -1255,7 +1255,8 @@ public struct CostUsageFetcher: Sendable {
         cacheRoot: URL?,
         client: ModelsDevClient) -> UnknownPricingRefreshRequest?
     {
-        guard provider == .codex || provider == .claude || provider == .antigravity else { return nil }
+        guard provider == .codex || provider == .claude || provider == .antigravity || provider == .grok
+        else { return nil }
         var targets = Set<ModelsDevPricingTarget>()
         for entry in daily.data {
             for breakdown in entry.modelBreakdowns ?? [] {
@@ -1267,6 +1268,8 @@ public struct CostUsageFetcher: Sendable {
                     guard OpenCodexRouteDispatcher.countsTowardCodexSubscription(modelName: breakdown.modelName),
                           !CostUsagePricing.isCodexUnattributedModel(breakdown.modelName) else { continue }
                     pricingTargets = CostUsagePricing.codexModelsDevPricingTargets(for: breakdown.modelName)
+                } else if provider == .grok {
+                    pricingTargets = [("xai", GroupedCostPriceTable.canonicalModel(breakdown.modelName))]
                 } else {
                     pricingTargets = CostUsagePricing.claudeModelsDevPricingTargets(for: breakdown.modelName)
                 }

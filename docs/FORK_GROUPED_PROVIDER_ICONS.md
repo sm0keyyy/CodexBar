@@ -63,10 +63,10 @@ compare its model breakdown rather than its empty native-provider rows.
   This preserves actual one-hour Claude cache writes and OpenAI charges instead of repricing them at another tier.
 - OMP `model_usage` records count independently of assistant messages. Entry timestamps select the local day;
   a message's earlier start timestamp must not move a completed call across midnight.
-- Grok always uses the official xAI tariff at <https://docs.x.ai/developers/models>,
-  reviewed on `2026-11-01`. `GroupedCostPriceTable.swift` is its sole rate source.
-  Every published Grok long-context family doubles all buckets at **at least 200,000 prompt tokens**,
-  including `grok-4.7`, `grok-4.5`, build aliases, and `grok-4.6-build`.
+- Grok uses models.dev's xAI catalog with the official tiers at <https://docs.x.ai/developers/models>,
+  reviewed on `2026-11-01`. `GroupedCostPriceTable.swift` contains the tier overlay and offline fallback.
+  Known Grok long-context families double all buckets at **at least 200,000 prompt tokens**
+  when the catalog has no context tier. New catalog model IDs use their published prices without code edits.
   Prompt size includes fresh input, cache reads, and cache creation. Cache creation has no surcharge.
 - CodeBurn 0.9.27's fallback calculation applies that tier only to canonical `grok-4.6`.
   Its OMP parser retains nonzero recorded USD, so already-correct recorded Grok calls can still match.
@@ -95,9 +95,12 @@ The fixture corpus preserves directory depth; flattening it would incorrectly hi
 Native Claude/Codex scanners also use `CostUsagePricing` and their existing request-pricing evidence.
 The shared resolvers normalize aliases, apply explicit route/custom overrides and historical rates, then consult models.dev and bundled rates.
 Unknown models without valid recorded USD or a matching tariff stay unpriced; token and request evidence remains in the report.
-Grok's native `GrokSessionCost` and mirrored `computedCostUSD` both call `GroupedCostPriceTable.cost`.
-That file strips a route prefix, applies explicit aliases, then exact or longest known family-prefix lookup.
-Unknown Grok families return no price, contribute no USD, and remain named in the tooltip.
+Grok's native `GrokSessionCost` and mirrored `computedCostUSD` use `CostUsagePricing.GrokResolver`.
+The resolver reads xAI prices from the same models.dev catalog and cache as Claude/Codex.
+`GroupedCostPriceTable` supplies offline prices and xAI's inclusive ≥200k prompt tier when the catalog omits it.
+Exact catalog model IDs precede bundled aliases, so new models and renames need no code change.
+The Grok cache refreshes through `ModelsDevPricingPipeline`; catalog price changes invalidate native and mirror totals.
+Unknown Grok families return no price and remain named as unpriced in the tooltip, without a zero-dollar estimate.
 No grouped Claude, Codex, or Grok amount comes from a live billing API, account balance, or credit delta.
 Recorded OMP USD is a client log value, not an invoice.
 
@@ -156,7 +159,7 @@ It keeps grouped strings in English in every locale, as the spec requires, witho
 ## Tests and gates
 
 Run the grouped suites: `GroupedProviderIconComposerTests`, `GroupedProviderIconPlanTests`,
-`GroupedDailyCostTests`, `GrokSessionCostTests`, `GroupedCostParityTests`,
+`GroupedDailyCostTests`, `GrokSessionCostTests`, `GrokAutoPricingTests`, `GroupedCostParityTests`,
 `GroupedProviderIconStatusItemTests`, and `SettingsStoreGroupedIconTests`.
 The settings suite checks all 23 locale catalogs for the same grouped keys.
 

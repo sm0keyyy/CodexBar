@@ -17,7 +17,13 @@ enum GrokSessionCost {
         let updates: String
     }
 
-    static func today(unifiedLog: String, sessions: [Session], now: Date, calendar: Calendar) -> GrokDayCost {
+    static func today(
+        unifiedLog: String,
+        sessions: [Session],
+        now: Date,
+        calendar: Calendar,
+        pricing: CostUsagePricing.GrokResolver = .init()) -> GrokDayCost
+    {
         let summaries = sessions.reduce(into: [String: String]()) { models, session in
             let summary = self.object(session.summary)
             if let model = summary["current_model_id"] as? String {
@@ -59,6 +65,7 @@ enum GrokSessionCost {
                     model: model ?? "grok-build",
                     tokens: .init(fresh: prompt - cached, output: completion, cacheRead: cached, cacheCreation: 0),
                     estimated: model == nil,
+                    pricing: pricing,
                     to: &result)
             }
         }
@@ -72,7 +79,7 @@ enum GrokSessionCost {
             let signals = self.object(session.signals)
             let model = summary["current_model_id"] as? String ?? signals["primaryModelId"] as? String
                 ?? (signals["modelsUsed"] as? [String])?.first ?? "grok-build"
-            self.addSession(session, model: model, to: &result)
+            self.addSession(session, model: model, pricing: pricing, to: &result)
         }
         result.unpricedModels.sort()
         return result
@@ -83,7 +90,12 @@ enum GrokSessionCost {
         let models: [String]
     }
 
-    private static func addSession(_ session: Session, model: String, to result: inout GrokDayCost) {
+    private static func addSession(
+        _ session: Session,
+        model: String,
+        pricing: CostUsagePricing.GrokResolver,
+        to result: inout GrokDayCost)
+    {
         var turns: [String: (first: Double, last: Double)] = [:]
         var completed: [String: CompletedUsage] = [:]
         var order: [String] = []
@@ -139,13 +151,14 @@ enum GrokSessionCost {
             }
         }
         if input + output + cached + creation > 0 {
-            let selected = modelIDs.first { GroupedCostPriceTable.rates(model: $0) != nil }
-                ?? (GroupedCostPriceTable.rates(model: model) != nil ? model : modelIDs.first ?? model)
+            let selected = modelIDs.first { pricing.rates(model: $0) != nil }
+                ?? (pricing.rates(model: model) != nil ? model : modelIDs.first ?? model)
             self.add(
                 model: selected,
                 tokens: .init(fresh: input, output: output, cacheRead: cached, cacheCreation: creation),
                 // Session rollups lack the individual request sizes needed to select context tiers.
                 estimated: true,
+                pricing: pricing,
                 to: &result)
         } else {
             fresh = self.sum(fresh, peak)
@@ -156,17 +169,19 @@ enum GrokSessionCost {
                 model: model,
                 tokens: .init(fresh: fresh, output: output, cacheRead: max(0, firsts - fresh), cacheCreation: 0),
                 estimated: true,
+                pricing: pricing,
                 to: &result)
         }
     }
 
     private static func add(
         model: String,
-        tokens: GroupedCostPriceTable.Tokens,
+        tokens: CostUsagePricing.GrokTokens,
         estimated: Bool,
+        pricing: CostUsagePricing.GrokResolver,
         to result: inout GrokDayCost)
     {
-        if let cost = GroupedCostPriceTable.cost(model: model, tokens: tokens) {
+        if let cost = pricing.cost(model: model, tokens: tokens) {
             result.usd += cost
         } else if !result.unpricedModels.contains(model) { result.unpricedModels.append(model) }
         result.estimated = result.estimated || estimated
