@@ -3,6 +3,92 @@ import Testing
 @testable import CodexBarCore
 
 struct CostUsageTimestampTests {
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["CODEXBAR_PARSE_CORPUS_CLAUDE_ROOT"] != nil))
+    func `explicit native corpus emits exact reports and single scan timing`() throws {
+        let environment = ProcessInfo.processInfo.environment
+        let claudeRoot = try #require(environment["CODEXBAR_PARSE_CORPUS_CLAUDE_ROOT"])
+        let output = try #require(environment["CODEXBAR_PARSE_CORPUS_OUTPUT"])
+        let env = try CostUsageTestEnvironment()
+        defer { env.cleanup() }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try #require(TimeZone(secondsFromGMT: 0))
+        let since = try #require(Self.historicalDate("1900-01-01T00:00:00Z"))
+        let until = try #require(Self.historicalDate("2026-11-02T00:00:00Z"))
+        let codexRoot = environment["CODEXBAR_PARSE_CORPUS_CODEX_ROOT"].map { URL(fileURLWithPath: $0) }
+            ?? env.codexSessionsRoot
+        let options = CostUsageScanner.Options(
+            codexSessionsRoot: codexRoot,
+            claudeProjectsRoots: [URL(fileURLWithPath: claudeRoot)],
+            cacheRoot: env.cacheRoot,
+            codexTraceDatabaseURL: env.root.appendingPathComponent("absent.sqlite"),
+            calendar: calendar,
+            maxCodexSessionFileBytes: .max,
+            maxCodexScanBytesPerRefresh: .max)
+        var reports: [String: CostUsageDailyReport] = [:]
+        let start = ProcessInfo.processInfo.systemUptime
+        let cpuStart = clock()
+        for provider in [UsageProvider.claude, .codex] {
+            reports[provider.rawValue] = try CostUsageScanner.loadDailyReportCancellable(
+                provider: provider,
+                since: since,
+                until: until,
+                now: until,
+                options: options,
+                checkCancellation: nil)
+        }
+        let cpu = Double(clock() - cpuStart) / Double(CLOCKS_PER_SEC)
+        let elapsed = ProcessInfo.processInfo.systemUptime - start
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        try encoder.encode(reports).write(to: URL(fileURLWithPath: output))
+        #expect(reports["claude"]?.data.isEmpty == false)
+        print("PARSE_CORPUS elapsed=\(elapsed) cpu=\(cpu) output=\(output)")
+    }
+
+    @Test
+    func `generated native epochs equal the former formatter path`() throws {
+        var seed: UInt64 = 0x52_4643_3333_3339
+        func next(_ bound: Int) -> Int {
+            seed = seed &* 6_364_136_223_846_793_005 &+ 1
+            return Int(seed >> 32) % bound
+        }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try #require(TimeZone(secondsFromGMT: 0))
+        let formatter = Date.ISO8601FormatStyle()
+        let zones = [
+            "Z", "+00:00", "-00:00", "+05:30", "-08:00", "+14:00", "-12:45",
+            "+18:00", "-18:00", "+18:01", "-18:01", "+23:59", "-23:59",
+        ]
+        for index in 0..<10000 {
+            let year = 1900 + next(8100)
+            let month = 1 + next(12)
+            let first = try #require(calendar.date(from: DateComponents(year: year, month: month, day: 1)))
+            let days = try #require(calendar.range(of: .day, in: .month, for: first))
+            let day = index.isMultiple(of: 2) ? days.count : 1 + next(days.count)
+            let whole = String(
+                format: "%04d-%02d-%02dT%02d:%02d:%02d",
+                year,
+                month,
+                day,
+                next(24),
+                next(60),
+                next(60))
+            let width = index % 10
+            let digits = String(String(format: "%09d", next(1_000_000_000)).prefix(width))
+            let fraction = width == 0 ? "" : "." + digits
+            let milliseconds = try #require(Int((digits + "000").prefix(3)))
+            let zone = zones[next(zones.count)]
+            let text = whole + fraction + zone
+            let expected: Date? = if let oldWhole = try? formatter.parse(whole + zone) {
+                Date(
+                    timeIntervalSince1970: oldWhole.timeIntervalSince1970 + Double(milliseconds) / 1000)
+            } else {
+                Self.historicalDate(text)
+            }
+            #expect(CostUsageScanner.dateFromTimestamp(text) == expected, "\(text)")
+        }
+    }
+
     private static func historicalDate(_ text: String) -> Date? {
         let fractional = ISO8601DateFormatter()
         fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]

@@ -4,6 +4,8 @@
 
 - Grouped menu bar: keep pills anchored with a fixed-width, tabular cost label. Show whole currency units from 100 and compact thousands from 10,000. Keep exact cents in the tooltip.
 
+- Local costs: convert native RFC3339 timestamps directly to UTC epochs, preserving millisecond truncation and historical timestamp handling.
+
 ## 0.83.0 — 2026-10-31
 
 ### Highlights

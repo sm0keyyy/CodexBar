@@ -31,8 +31,8 @@ private enum CostUsageTimestampParser {
         return self.box.withFractional.date(from: text) ?? self.box.plain.date(from: text)
     }
 
-    /// Keep historical ISO log spellings on the formatter path. Foundation handles calendar
-    /// conversion; explicit milliseconds preserve ICU truncation and Date rounding.
+    /// Keep historical ISO log spellings on the formatter path. Integer Gregorian days
+    /// avoid a second parse; explicit milliseconds preserve ICU truncation and Date rounding.
     static func parseNativeRFC3339(_ text: String) -> Date? {
         let bytes = Array(text.utf8)
         guard bytes.count >= 20, bytes[4] == 45, bytes[7] == 45, bytes[10] == 84,
@@ -69,17 +69,24 @@ private enum CostUsageTimestampParser {
             guard zoneIndex > start, zoneIndex - start <= 9 else { return nil }
         }
         guard zoneIndex < bytes.count else { return nil }
+        var offsetSeconds = 0
         if bytes[zoneIndex] == 90 {
             guard bytes.count == zoneIndex + 1 else { return nil }
         } else {
+            // ISO8601FormatStyle accepts offsets through 18:00; larger offsets use historical parsing.
             guard bytes.count == zoneIndex + 6, bytes[zoneIndex] == 43 || bytes[zoneIndex] == 45,
-                  bytes[zoneIndex + 3] == 58, let hours = number(zoneIndex + 1), hours < 24,
-                  let minutes = number(zoneIndex + 4), minutes < 60 else { return nil }
+                  bytes[zoneIndex + 3] == 58, let hours = number(zoneIndex + 1), hours <= 18,
+                  let minutes = number(zoneIndex + 4), minutes < 60,
+                  hours < 18 || minutes == 0 else { return nil }
+            offsetSeconds = (hours * 3600 + minutes * 60) * (bytes[zoneIndex] == 43 ? 1 : -1)
         }
-        guard let whole = zoneIndex == 19 ? text : String(bytes: bytes[..<19] + bytes[zoneIndex...], encoding: .utf8)
-        else { return nil }
-        guard let date = try? Date.ISO8601FormatStyle().parse(whole) else { return nil }
-        return Date(timeIntervalSince1970: date.timeIntervalSince1970 + Double(milliseconds) / 1000)
+        let priorYear = year - 1
+        let daysBeforeYear = priorYear * 365 + priorYear / 4 - priorYear / 100 + priorYear / 400
+        // Gregorian month offsets need a March correction; 719162 days precede 1970-01-01.
+        let daysBeforeMonth = (367 * month - 362) / 12 + (month <= 2 ? 0 : leap ? -1 : -2)
+        let epochDays = daysBeforeYear + daysBeforeMonth + day - 1 - 719_162
+        let seconds = epochDays * 86400 + hour * 3600 + minute * 60 + second - offsetSeconds
+        return Date(timeIntervalSince1970: Double(seconds) + Double(milliseconds) / 1000)
     }
 }
 

@@ -10,6 +10,48 @@ import Testing
 // swiftlint:disable:next type_body_length
 struct CostUsageScannerTests {
     @Test
+    func `malformed complete tails never change Claude or Codex totals`() throws {
+        let env = try CostUsageTestEnvironment()
+        defer { env.cleanup() }
+        let day = try env.makeLocalNoon(year: 2026, month: 5, day: 10)
+        let timestamp = env.isoString(for: day)
+        let range = CostUsageScanner.CostUsageDayRange(since: day, until: day)
+        let resolver = CostUsagePricing.ClaudeResolver(now: day, cacheRoot: env.cacheRoot)
+        let claude = """
+        {"type":"assistant","timestamp":"\(timestamp)",\
+        "message":{"model":"claude-sonnet-4-6","usage":{"input_tokens":100,"output_tokens":10}}}
+        """
+        let codex = """
+        {"type":"event_msg","timestamp":"\(timestamp)",\
+        "payload":{"type":"token_count","info":{"model":"gpt-5.5",\
+        "last_token_usage":{"input_tokens":100,"output_tokens":10}}}}
+        """
+        let claudeFile = try env.writeClaudeProjectFile(relativePath: "tail/session.jsonl", contents: claude + "\n")
+        let codexFile = try env.writeCodexSessionFile(day: day, filename: "tail.jsonl", contents: codex + "\n")
+        let expectedClaude = try CostUsageScanner.parseClaudeFileCancellable(
+            fileURL: claudeFile, range: range, providerFilter: .all, pricingResolver: resolver)
+        let expectedCodex = try CostUsageScanner.parseCodexFileCancellable(fileURL: codexFile, range: range)
+        #expect(expectedClaude.rows.count == 1)
+        #expect(expectedCodex.rows.count == 1)
+        #expect((expectedClaude.rows.first?.costNanos ?? 0) > 0)
+        let suffixes = [#","invalid":tru}"#, #","invalid":"\q"}"#, "]", #" "missingComma":1}"#, "}garbage"]
+        for suffix in suffixes {
+            let malformedClaude = String(claude.dropLast()) + suffix
+            let malformedCodex = String(codex.dropLast()) + suffix
+            #expect((try? JSONSerialization.jsonObject(with: Data(malformedClaude.utf8))) == nil)
+            #expect((try? JSONSerialization.jsonObject(with: Data(malformedCodex.utf8))) == nil)
+            try (claude + "\n" + malformedClaude).write(to: claudeFile, atomically: true, encoding: .utf8)
+            try (codex + "\n" + malformedCodex).write(to: codexFile, atomically: true, encoding: .utf8)
+            let actualClaude = try CostUsageScanner.parseClaudeFileCancellable(
+                fileURL: claudeFile, range: range, providerFilter: .all, pricingResolver: resolver)
+            let actualCodex = try CostUsageScanner.parseCodexFileCancellable(fileURL: codexFile, range: range)
+            #expect(actualClaude.rows == expectedClaude.rows)
+            #expect(actualCodex.days == expectedCodex.days)
+            #expect(actualCodex.rows == expectedCodex.rows)
+        }
+    }
+
+    @Test
     func `codex session metadata skips an oversized line without retaining it`() throws {
         let env = try CostUsageTestEnvironment()
         defer { env.cleanup() }
