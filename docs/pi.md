@@ -31,6 +31,8 @@ Live processes with an unreadable environment and no explicit command-line sessi
 
 Assistant turns are bucketed by their own timestamp in the selected cost time zone. Matching entry IDs within the same session count once across overlapping roots. Distinct turns remain separate. The scanner retains per-message prices and token classes rather than repricing a daily aggregate.
 
+The JSONL field walker keeps only accounting fields. It validates skipped content and thinking trees without materializing them. Integer token lexemes use the shared byte parser; fractional and string counters retain the existing rounded fallback. Recorded Claude/Codex USD retains JSONSerialization's `NSNumber.doubleValue` conversion and nanodollar rounding.
+
 ## Count each source once
 
 With Pi disabled, unscoped Claude and Codex history can include their supported Pi/OMP backend partitions. With Pi and local cost tracking enabled, the app shows native Claude/Codex history alongside standalone Pi. Combined CLI selections follow the same rule. Account-scoped Codex history always remains native because machine-local Pi history does not establish account ownership. Overview and Usage & Spend use the same source accounting, including during cached hydration and completed Codex catch-up.

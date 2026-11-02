@@ -121,7 +121,7 @@ extension CostUsageScanner {
         return nil
     }
 
-    private static func parseJSONByteStringRange(
+    static func parseJSONByteStringRange(
         in bytes: UnsafeBufferPointer<UInt8>,
         index: inout Int,
         limit: Int) -> (range: Range<Int>, hasEscapes: Bool)?
@@ -180,7 +180,7 @@ extension CostUsageScanner {
         return nil
     }
 
-    private static func parseJSONByteInt(
+    static func parseJSONByteInt(
         in bytes: UnsafeBufferPointer<UInt8>,
         index: inout Int,
         limit: Int) -> Int?
@@ -250,7 +250,7 @@ extension CostUsageScanner {
         }
     }
 
-    private static func decodeEscapedJSONByteString(
+    static func decodeEscapedJSONByteString(
         from bytes: UnsafeBufferPointer<UInt8>,
         in range: Range<Int>) -> String?
     {
