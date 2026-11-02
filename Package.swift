@@ -18,6 +18,16 @@ let sqlite3LinkerSettings: [LinkerSetting] = if let sqlite3LibDir, !sqlite3LibDi
     []
 }
 
+#if os(macOS)
+let appKitTestDependencies: [Target.Dependency] = ["CodexBarTestBootstrap"]
+let appKitTestLinkerSettings: [LinkerSetting] = [
+    .unsafeFlags(["-Xlinker", "-u", "-Xlinker", "_codexbar_test_bootstrap_applied_policy"]),
+]
+#else
+let appKitTestDependencies: [Target.Dependency] = []
+let appKitTestLinkerSettings: [LinkerSetting] = []
+#endif
+
 let package = Package(
     name: "CodexBar",
     defaultLocalization: "en",
@@ -159,24 +169,26 @@ let package = Package(
                 ]),
             .testTarget(
                 name: "CodexBarPluginTests",
-                dependencies: ["CodexBarCore"],
+                dependencies: ["CodexBarCore"] + appKitTestDependencies,
                 path: "TestsPlugin",
                 swiftSettings: [
                     .enableUpcomingFeature("StrictConcurrency"),
                     .enableExperimentalFeature("SwiftTesting"),
-                ]),
+                ],
+                linkerSettings: appKitTestLinkerSettings),
             .testTarget(
                 name: "CodexBarLinuxTests",
                 dependencies: [
                     "CodexBarCore",
                     "CodexBarCLI",
                     .target(name: "CSQLite3", condition: .when(platforms: [.linux])),
-                ],
+                ] + appKitTestDependencies,
                 path: "TestsLinux",
                 swiftSettings: [
                     .enableUpcomingFeature("StrictConcurrency"),
                     .enableExperimentalFeature("SwiftTesting"),
-                ]),
+                ],
+                linkerSettings: appKitTestLinkerSettings),
         ]
 
         #if os(macOS)

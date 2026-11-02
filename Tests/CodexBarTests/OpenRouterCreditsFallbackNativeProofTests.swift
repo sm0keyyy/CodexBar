@@ -79,7 +79,7 @@ final class OpenRouterCreditsFallbackNativeProofTests: XCTestCase {
             }
         }
 
-        _ = app.setActivationPolicy(.regular)
+        _ = app.setActivationPolicy(.accessory)
         app.finishLaunching()
         window.center()
         window.makeKeyAndOrderFront(nil)

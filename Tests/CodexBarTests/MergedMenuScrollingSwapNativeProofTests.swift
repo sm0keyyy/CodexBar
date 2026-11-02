@@ -33,7 +33,7 @@ final class MergedMenuScrollingSwapNativeProofTests: XCTestCase {
         guard app.delegate == nil else { return XCTFail("Use a standalone test host") }
         let oldPolicy = app.activationPolicy()
         let previous = NSWorkspace.shared.frontmostApplication
-        _ = app.setActivationPolicy(.regular)
+        _ = app.setActivationPolicy(.accessory)
         app.finishLaunching()
         let previousRendering = StatusItemController.menuCardRenderingEnabled
         let previousRefresh = StatusItemController.menuRefreshEnabled

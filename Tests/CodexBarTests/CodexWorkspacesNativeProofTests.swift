@@ -47,7 +47,7 @@ final class CodexWorkspacesNativeProofTests: XCTestCase {
             }
         }
 
-        XCTAssertTrue(application.setActivationPolicy(.regular))
+        XCTAssertTrue(application.setActivationPolicy(.accessory))
         application.finishLaunching()
         application.activate()
         host.makeKeyAndOrderFront(nil)
@@ -122,7 +122,7 @@ final class CodexWorkspacesNativeProofTests: XCTestCase {
                 previousApplication?.activate()
             }
         }
-        _ = application.setActivationPolicy(.regular)
+        _ = application.setActivationPolicy(.accessory)
         application.finishLaunching()
         controller.present()
         try await self.awaitCondition { window.isVisible && model.snapshot != nil && !model.isLoading }

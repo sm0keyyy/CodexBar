@@ -32,7 +32,7 @@ final class GrokCritterNativeProofTests: XCTestCase {
             _ = app.setActivationPolicy(policy)
             previousApp?.activate()
         }
-        _ = app.setActivationPolicy(.regular)
+        _ = app.setActivationPolicy(.accessory)
         app.finishLaunching()
         host.show()
         let deadline = Date().addingTimeInterval(900)

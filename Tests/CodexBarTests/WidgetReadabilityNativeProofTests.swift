@@ -41,7 +41,7 @@ final class WidgetReadabilityNativeProofTests: XCTestCase {
                 previousApplication?.activate()
             }
         }
-        _ = application.setActivationPolicy(.regular)
+        _ = application.setActivationPolicy(.accessory)
         application.finishLaunching()
         window.center()
         window.makeKeyAndOrderFront(nil)

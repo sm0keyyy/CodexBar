@@ -78,7 +78,7 @@ final class StatusMenuProviderNativeProofTests: XCTestCase {
                 previousApplication?.activate()
             }
         }
-        XCTAssertTrue(application.setActivationPolicy(.regular))
+        XCTAssertTrue(application.setActivationPolicy(.accessory))
         application.finishLaunching()
         application.activate(ignoringOtherApps: true)
         host.makeKeyAndOrderFront(nil)

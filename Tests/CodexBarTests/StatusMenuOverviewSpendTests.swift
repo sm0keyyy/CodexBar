@@ -39,7 +39,7 @@ extension StatusMenuTests {
         let application = NSApplication.shared
         let previousApplication = NSWorkspace.shared.frontmostApplication
         let previousPolicy = application.activationPolicy()
-        try #require(application.setActivationPolicy(.regular))
+        try #require(application.setActivationPolicy(.accessory))
         application.finishLaunching()
         defer {
             _ = application.setActivationPolicy(previousPolicy)

@@ -52,7 +52,7 @@ final class CopilotAllowanceNativeProofTests: XCTestCase {
             _ = app.setActivationPolicy(policy)
             previousApp?.activate()
         }
-        _ = app.setActivationPolicy(.regular)
+        _ = app.setActivationPolicy(.accessory)
         app.finishLaunching()
         window.center()
         window.makeKeyAndOrderFront(nil)

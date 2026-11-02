@@ -51,7 +51,7 @@ final class CodexWorkspacesConfigurationTests: XCTestCase {
                 previousApplication?.activate()
             }
         }
-        _ = application.setActivationPolicy(.regular)
+        _ = application.setActivationPolicy(.accessory)
         controller.present()
         try await self.waitUntil("Active window request") { started.value && window.isVisible }
         window.performClose(nil)
@@ -103,7 +103,7 @@ final class CodexWorkspacesConfigurationTests: XCTestCase {
                 previousApplication?.activate()
             }
         }
-        _ = application.setActivationPolicy(.regular)
+        _ = application.setActivationPolicy(.accessory)
         controller.present()
         let window: NSWindow = try XCTUnwrap(controller.window)
         try await self.waitUntil("Initial visible load") {

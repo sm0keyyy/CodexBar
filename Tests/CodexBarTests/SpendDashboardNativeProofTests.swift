@@ -92,7 +92,7 @@ final class SpendDashboardNativeProofTests: XCTestCase {
             _ = application.setActivationPolicy(previousPolicy)
             previousApplication?.activate()
         }
-        _ = application.setActivationPolicy(.regular)
+        _ = application.setActivationPolicy(.accessory)
         application.finishLaunching()
         window.center()
         window.makeKeyAndOrderFront(nil)

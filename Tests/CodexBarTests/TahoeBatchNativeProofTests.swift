@@ -33,7 +33,7 @@ final class TahoeBatchNativeProofTests: XCTestCase {
         let oldPolicy = app.activationPolicy()
         let oldAppearance = app.appearance
         let previous = NSWorkspace.shared.frontmostApplication
-        _ = app.setActivationPolicy(.regular)
+        _ = app.setActivationPolicy(.accessory)
         app.appearance = NSAppearance(named: .darkAqua)
         app.finishLaunching()
         let previousRendering = StatusItemController.menuCardRenderingEnabled

@@ -27,7 +27,7 @@ final class StatusMenuCodexAccountSwitchNativeProofTests: XCTestCase {
         guard app.delegate == nil else { return XCTFail("Use a standalone signed test host") }
         let oldPolicy = app.activationPolicy()
         let previousApp = NSWorkspace.shared.frontmostApplication
-        _ = app.setActivationPolicy(.regular)
+        _ = app.setActivationPolicy(.accessory)
         app.finishLaunching()
         let previousRendering = StatusItemController.menuCardRenderingEnabled
         let previousRefresh = StatusItemController.menuRefreshEnabled

@@ -118,7 +118,7 @@ final class CodexSharedCostNativeProofTests: XCTestCase {
                 previousApp?.activate()
             }
         }
-        _ = app.setActivationPolicy(.regular)
+        _ = app.setActivationPolicy(.accessory)
         app.finishLaunching()
         host.center()
         host.makeKeyAndOrderFront(nil)

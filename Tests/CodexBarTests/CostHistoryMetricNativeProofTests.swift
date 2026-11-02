@@ -47,7 +47,7 @@ final class CostHistoryMetricNativeProofTests: XCTestCase {
         }
         // Both menu topologies share one application lifecycle. Relaunching AppKit between
         // popups can deliver activation changes into the next menu's tracking loop.
-        XCTAssertTrue(application.setActivationPolicy(.regular))
+        XCTAssertTrue(application.setActivationPolicy(.accessory))
         application.finishLaunching()
         host.makeKeyAndOrderFront(nil)
         application.activate(ignoringOtherApps: true)

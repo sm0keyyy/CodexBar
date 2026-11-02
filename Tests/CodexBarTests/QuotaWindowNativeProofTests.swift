@@ -41,7 +41,7 @@ final class QuotaWindowNativeProofTests: XCTestCase {
                 previousApp?.activate()
             }
         }
-        XCTAssertTrue(app.setActivationPolicy(.regular))
+        XCTAssertTrue(app.setActivationPolicy(.accessory))
         app.finishLaunching()
         app.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)

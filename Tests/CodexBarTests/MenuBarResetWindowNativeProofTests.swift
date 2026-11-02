@@ -62,7 +62,7 @@ final class MenuBarResetWindowNativeProofTests: XCTestCase {
                 previousApp?.activate()
             }
         }
-        _ = app.setActivationPolicy(.regular)
+        _ = app.setActivationPolicy(.accessory)
         app.finishLaunching()
         window.center()
         window.makeKeyAndOrderFront(nil)
@@ -164,7 +164,7 @@ final class MenuBarResetWindowNativeProofTests: XCTestCase {
                 previousApplication?.activate()
             }
         }
-        _ = application.setActivationPolicy(.regular)
+        _ = application.setActivationPolicy(.accessory)
         application.finishLaunching()
         window.center()
         window.makeKeyAndOrderFront(nil)
