@@ -19,7 +19,8 @@ extension CostUsagePricing {
         private let catalog: ModelsDevCatalog?
         package let fingerprint: String
 
-        // Provider-specific by design: Grok fingerprints and resolves only xAI's catalog, never another vendor's prices.
+        /// Provider-specific by design: Grok fingerprints and resolves only xAI's catalog.
+        /// Other vendors cannot contribute prices.
         package init(cacheRoot: URL? = nil) {
             let artifact = ModelsDevCache.load(cacheRoot: cacheRoot).artifact
             self.catalog = artifact?.catalog
@@ -72,7 +73,7 @@ extension CostUsagePricing {
         }
     }
 
-    // Provider-specific by design: Native Grok unknown-model refreshes must stay in xAI's catalog.
+    /// Provider-specific by design: Native Grok unknown-model refreshes must stay in xAI's catalog.
     package static func refreshGrokPricingIfNeeded(now: Date, unpricedModels: [String] = []) async {
         await ModelsDevPricingPipeline.refreshIfNeeded(now: now)
         if !unpricedModels.isEmpty {

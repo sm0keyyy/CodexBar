@@ -11,29 +11,31 @@ extension CostUsageCodexRowStorageTests {
     func `explicit row scan probe records footprint and corpus parity`() throws {
         let environment = ProcessInfo.processInfo.environment
         let output = try URL(fileURLWithPath: #require(environment["CODEXBAR_CODEX_ROW_PROBE"]))
-        let env = try CostUsageTestEnvironment()
-        defer { env.cleanup() }
-        let day = try env.makeLocalNoon(year: 2026, month: 8, day: 1)
-        let range = CostUsageScanner.CostUsageDayRange(since: day, until: day)
-        let count = 40000
-        let line = """
-        {"type":"event_msg","timestamp":"2026-08-01T12:00:00Z","payload":{"type":"token_count",\
-        "info":{"last_token_usage":{"input_tokens":10,"cached_input_tokens":2,"output_tokens":3}}}}
-        """
-        let file = try env.writeCodexSessionFile(
-            day: day, filename: "rows.jsonl", contents: String(repeating: line + "\n", count: count))
-        let before = Self.rowProbeFootprint()
-        let parsed = try CostUsageScanner.parseCodexFileCancellable(
-            fileURL: file,
-            range: range,
-            initialModel: "gpt-5.4")
-        let after = Self.rowProbeFootprint()
-        #expect(parsed.rows.count == count)
-        print("[codex-row-footprint] before=\(before) after=\(after) delta=\(Int64(after) - Int64(before)) "
-            + "rows=\(parsed.rows.count) stride=\(MemoryLayout<CostUsageScanner.CodexUsageRow>.stride)")
-        let fixture = try Self.rowProbeTotals(files: [file], range: range, initialModel: "gpt-5.4")
-        withExtendedLifetime(parsed) {}
-        var evidence = ["fixture": fixture]
+        var evidence: [String: RowProbeEvidence] = [:]
+        if environment["CODEXBAR_CODEX_ROW_CORPUS_ONLY"] != "1" {
+            let env = try CostUsageTestEnvironment()
+            defer { env.cleanup() }
+            let day = try env.makeLocalNoon(year: 2026, month: 8, day: 1)
+            let range = CostUsageScanner.CostUsageDayRange(since: day, until: day)
+            let count = 40000
+            let line = """
+            {"type":"event_msg","timestamp":"2026-08-01T12:00:00Z","payload":{"type":"token_count",\
+            "info":{"last_token_usage":{"input_tokens":10,"cached_input_tokens":2,"output_tokens":3}}}}
+            """
+            let file = try env.writeCodexSessionFile(
+                day: day, filename: "rows.jsonl", contents: String(repeating: line + "\n", count: count))
+            let before = Self.rowProbeFootprint()
+            let parsed = try CostUsageScanner.parseCodexFileCancellable(
+                fileURL: file,
+                range: range,
+                initialModel: "gpt-5.4")
+            let after = Self.rowProbeFootprint()
+            #expect(parsed.rows.count == count)
+            print("[codex-row-footprint] before=\(before) after=\(after) delta=\(Int64(after) - Int64(before)) "
+                + "rows=\(parsed.rows.count) stride=\(MemoryLayout<CostUsageScanner.CodexUsageRow>.stride)")
+            evidence["fixture"] = try Self.rowProbeTotals(files: [file], range: range, initialModel: "gpt-5.4")
+            withExtendedLifetime(parsed) {}
+        }
         if let root = environment["CODEXBAR_CODEX_ROW_CORPUS"] {
             let enumerator = try #require(FileManager.default.enumerator(
                 at: URL(fileURLWithPath: root),
