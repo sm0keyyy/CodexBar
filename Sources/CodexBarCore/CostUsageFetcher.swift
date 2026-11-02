@@ -1255,6 +1255,7 @@ public struct CostUsageFetcher: Sendable {
         cacheRoot: URL?,
         client: ModelsDevClient) -> UnknownPricingRefreshRequest?
     {
+        // Provider-specific by design: Each local ledger has its own vendor route for unknown-model pricing.
         guard provider == .codex || provider == .claude || provider == .antigravity || provider == .grok
         else { return nil }
         var targets = Set<ModelsDevPricingTarget>()

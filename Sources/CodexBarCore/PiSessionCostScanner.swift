@@ -1310,13 +1310,13 @@ package enum PiSessionCostScanner {
             outputTokens: output,
             totalTokens: totalTokens)
         let reported = (usage["cost"] as? [String: Any])?["total"] as? PiSessionJSONNumber
+        // Provider-specific by design: Claude/Codex retain positive client USD; Grok recomputes its official tariff.
         let recordedCost = reported.flatMap { value -> Double? in
             guard provider == .claude || provider == .codex,
                   let number = value.foundationNumber,
                   number.doubleValue.isFinite, number.doubleValue > 0 else { return nil }
             return number.doubleValue
         }
-        // Provider-specific by design: Claude/Codex preserve recorded USD; Grok uses the official tariff.
         let preservesRecordedCost = provider == .claude || provider == .codex
         let costUSD = preservesRecordedCost && recordedCost != nil ? recordedCost : totalTokens == derivedTotal
             ? self.computedCostUSD(
