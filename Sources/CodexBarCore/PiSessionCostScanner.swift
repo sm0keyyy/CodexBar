@@ -104,7 +104,7 @@ package enum PiSessionCostScanner {
 
     static let costScale = 1_000_000_000.0
     /// Bump for Pi-only cost formula changes not represented by the parser or pricing fingerprints.
-    private static let costFormulaVersion = 6
+    private static let costFormulaVersion = 7
     private static let maxLineBytes = 16 * 1024 * 1024
     private static let sessionStartFilenameRegex = try? NSRegularExpression(
         pattern: "^(\\d{4}-\\d{2}-\\d{2})T(\\d{2})-(\\d{2})-(\\d{2})-(\\d{3})Z_")
@@ -484,7 +484,7 @@ package enum PiSessionCostScanner {
                 formulaVersion: Self.costFormulaVersion,
                 parserHash: CodexParserHash.value,
                 modelsDevProviderIDs: CostUsagePricing.codexModelsDevProviderIDs.union(
-                    Set(CostUsagePricing.claudeFirstPartyModelsDevProviderIDs + ["amazon-bedrock"])),
+                    Set(CostUsagePricing.claudeFirstPartyModelsDevProviderIDs + ["amazon-bedrock", "xai"])),
                 customPricingFingerprint: customPricingFingerprint))
     }
 
@@ -1372,7 +1372,7 @@ package enum PiSessionCostScanner {
                 modelsDevCatalog: pricingContext?.catalog,
                 modelsDevCacheRoot: pricingContext?.cacheRoot)
         case .grok:
-            return GroupedCostPriceTable.cost(
+            return CostUsagePricing.GrokResolver(catalog: pricingContext?.catalog).cost(
                 model: modelName,
                 tokens: .init(
                     fresh: Double(usage.inputTokens),

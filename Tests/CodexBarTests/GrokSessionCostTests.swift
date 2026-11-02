@@ -1,7 +1,7 @@
-import CodexBarCore
 import Foundation
 import Testing
 @testable import CodexBar
+@testable import CodexBarCore
 
 struct GrokSessionCostTests {
     private var calendar: Calendar {
@@ -29,7 +29,12 @@ struct GrokSessionCostTests {
     }
 
     private func scan(_ log: String = "", sessions: [GrokSessionCost.Session] = []) -> GrokDayCost {
-        GrokSessionCost.today(unifiedLog: log, sessions: sessions, now: self.now, calendar: self.calendar)
+        GrokSessionCost.today(
+            unifiedLog: log,
+            sessions: sessions,
+            now: self.now,
+            calendar: self.calendar,
+            pricing: .init(catalog: nil))
     }
 
     private func session(
@@ -144,7 +149,7 @@ struct GrokSessionCostTests {
     }
 
     @Test func `cache creation participates in the prompt threshold without a surcharge`() {
-        let cost = GroupedCostPriceTable.cost(
+        let cost = CostUsagePricing.GrokResolver(catalog: nil).cost(
             model: "grok-build",
             tokens: .init(fresh: 100_000, output: 10000, cacheRead: 50000, cacheCreation: 50000))
         #expect(cost == 0.36)

@@ -1,6 +1,6 @@
 import Foundation
 
-enum CostUsagePricing {
+package enum CostUsagePricing {
     private static let codexPriorityInputTokenLimit = 272_000
     static let codexUnattributedModel = "unknown"
 

@@ -20,12 +20,17 @@ package enum GroupedCostPriceTable {
     ]
     private static let keys = GroupedCostPriceTable.rows.keys.sorted { $0.count > $1.count }
 
-    package static func rates(model: String, promptTokens: Double = 0) -> Rates? {
+    package static func canonicalModel(_ model: String) -> String {
         var canonical = model.lastIndex(of: "/").map { String(model[model.index(after: $0)...]) } ?? model
         if canonical == "grok-build" { canonical = "grok-build-0.1" }
         if canonical == "grok-4.6-high" || canonical == "grok-4.6-high-fast" {
             canonical = "grok-4.6"
         }
+        return canonical
+    }
+
+    package static func rates(model: String, promptTokens: Double = 0) -> Rates? {
+        let canonical = self.canonicalModel(model)
         guard let key = self.rows[canonical] != nil ? canonical : self.keys.first(where: {
             canonical.hasPrefix($0 + "-")
         }), let base = self.rows[key] else { return nil }
@@ -35,27 +40,5 @@ package enum GroupedCostPriceTable {
             input: base.input * multiplier,
             output: base.output * multiplier,
             cached: base.cached * multiplier)
-    }
-
-    package struct Tokens {
-        package let fresh: Double
-        package let output: Double
-        package let cacheRead: Double
-        package let cacheCreation: Double
-
-        package init(fresh: Double, output: Double, cacheRead: Double, cacheCreation: Double) {
-            self.fresh = fresh
-            self.output = output
-            self.cacheRead = cacheRead
-            self.cacheCreation = cacheCreation
-        }
-    }
-
-    package static func cost(model: String, tokens: Tokens) -> Double? {
-        guard let rates = self.rates(
-            model: model,
-            promptTokens: tokens.fresh + tokens.cacheRead + tokens.cacheCreation) else { return nil }
-        return ((tokens.fresh + tokens.cacheCreation) * rates.input
-            + tokens.output * rates.output + tokens.cacheRead * rates.cached) / 1_000_000
     }
 }

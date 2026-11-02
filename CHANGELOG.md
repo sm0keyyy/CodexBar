@@ -6,6 +6,8 @@
 
 - Local costs: convert native RFC3339 timestamps directly to UTC epochs, preserving millisecond truncation and historical timestamp handling.
 
+- Grok: price new models from the shared models.dev catalog, retain official long-context tiers and offline rates, and name unknown models as unpriced.
+
 ## 0.83.0 — 2026-10-31
 
 ### Highlights
