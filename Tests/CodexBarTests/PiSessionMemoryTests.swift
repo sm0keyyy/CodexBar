@@ -17,7 +17,7 @@ struct PiSessionMemoryTests {
         {"role":"assistant","provider":"openrouter","model":"typesafe/jev-latest",\
         "usage":{"input":10,"output":5,"totalTokens":15}}}
         """
-        let count = 128000
+        let count = 128_000
         let file = try env.writePiSessionFile(
             relativePath: "timestamps.jsonl",
             contents: String(repeating: row + "\n", count: count))
@@ -28,20 +28,27 @@ struct PiSessionMemoryTests {
             environment: ["HOME": env.root.path])
         try CostUsageClaudeFragments.$shared.withValue(CostUsageClaudeFragments()) {
             _ = try PiSessionCostScanner.loadDailyReportResultCancellable(
-                provider: .pi, since: day, until: day, now: day,
-                options: options, checkCancellation: nil)
+                provider: .pi,
+                since: day,
+                until: day,
+                now: day,
+                options: options,
+                checkCancellation: nil)
             let handle = try FileHandle(forWritingTo: file)
             defer { try? handle.close() }
             let offset = try handle.seekToEnd()
             try handle.write(contentsOf: Data((row + "\n").utf8))
             let memory = RefreshMemory()
             let before = memory.peak
-            let result = try PiSessionCostScanner.$sessionParseOffsetObserverForTesting.withValue({
-                memory.parsed($0)
-            }) {
+            let observeOffset: @Sendable (Int64) -> Void = { memory.parsed($0) }
+            let result = try PiSessionCostScanner.$sessionParseOffsetObserverForTesting.withValue(observeOffset) {
                 try PiSessionCostScanner.loadDailyReportResultCancellable(
-                    provider: .pi, since: day, until: day, now: day.addingTimeInterval(1),
-                    options: options, checkCancellation: { memory.record() })
+                    provider: .pi,
+                    since: day,
+                    until: day,
+                    now: day.addingTimeInterval(1),
+                    options: options,
+                    checkCancellation: { memory.record() })
             }
             memory.record()
             #expect(result.isComplete)
@@ -59,8 +66,13 @@ struct PiSessionMemoryTests {
 
         init() { self.record() }
 
-        var peak: UInt64 { self.lock.withLock { self.maximum } }
-        var offsets: [Int64] { self.lock.withLock { self.starts } }
+        var peak: UInt64 {
+            self.lock.withLock { self.maximum }
+        }
+
+        var offsets: [Int64] {
+            self.lock.withLock { self.starts }
+        }
 
         func parsed(_ offset: Int64) { self.lock.withLock { self.starts.append(offset) } }
 
