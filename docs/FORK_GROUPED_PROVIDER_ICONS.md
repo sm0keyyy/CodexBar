@@ -115,15 +115,16 @@ An unchanged artifact stamp reuses the decoded snapshot across provider reads.
 A changed source rewrites its shard, not the full session ledger.
 The fragment cache bounds retained snapshots by count and encoded byte cost.
 The manifest rename remains the atomic commit point. Corrupt artifacts rebuild from the source files.
-The v10 artifact keeps the new wire format separate from installed v9 builds.
+The v11 artifact keeps compact entry archives separate from v9/v10 cache formats.
 Older artifacts trigger a streaming source rebuild instead of a large legacy JSON decode.
 Pricing, day windows, recursive discovery, and duplicate-entry rules remain unchanged.
 The Grok worker drains its autorelease pool before the existing malloc relief helper returns free pages to the system.
 This work stays off the main actor.
-The Grok worker shares the serial executor for native cost scans instead of a separate detached task.
+Each provider has a serial utility lane; Grok cannot queue ahead of native scans.
 
 `PiSessionMemoryTests` uses synthetic sessions in one directory.
-It asserts zero transcript parses, artifact reads, and shard encodes across ten unchanged refreshes.
+It asserts zero transcript parses, artifact reads, entry decodes, and shard encodes across ten unchanged refreshes.
+The manifest stamp remains unchanged when only the scan time advances.
 One appended session requires one parse and one encoded shard smaller than 4096 bytes.
 This deterministic buffer guard does not claim a process-wide malloc limit.
 
