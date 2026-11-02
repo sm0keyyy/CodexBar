@@ -6,13 +6,14 @@ extension StatusItemController {
         let provider: UsageProvider
         let quota: GroupedProviderIconPlan.Quota
         let stale: Bool
+        let loading: Bool
         let warning: GroupedTileWarning.Level
-        let tint: NSColor?
+        let tint: NSColor
         let flash: Bool
 
         var signature: String {
             "\(self.provider.rawValue),quota=\(self.quota.signature),stale=\(self.stale)"
-                + ",warning=\(self.warning.rawValue),tint=\(self.tint?.description ?? "template"),flash=\(self.flash)"
+                + ",loading=\(self.loading),warning=\(self.warning.rawValue),tint=\(self.tint),flash=\(self.flash)"
         }
     }
 
@@ -64,15 +65,9 @@ extension StatusItemController {
         }
         var composite: NSImage?
         button.effectiveAppearance.performAsCurrentDrawingAppearance {
-            var images = tiles.map { self.renderGroupedTile($0) }
-            let colored = self.shouldUseHighContrastStatusItemContent || images.contains { !$0.isTemplate }
-            if colored {
-                let color: NSColor = self.shouldUseHighContrastStatusItemContent ? .labelColor : .controlTextColor
-                images = images.map { MenuBarLayoutRenderer.attachmentImage($0, tint: color, isMonochrome: false) }
-            }
             composite = GroupedProviderIconComposer.compose(
-                tiles: images, backingScale: button.window?.backingScaleFactor ?? 2)
-            composite?.isTemplate = !colored
+                tiles: tiles.map { self.renderGroupedTile($0) },
+                backingScale: button.window?.backingScaleFactor ?? 2)
         }
         guard let composite else { return false }
         self.setGroupedButtonContent(
@@ -94,30 +89,26 @@ extension StatusItemController {
         let quota = GroupedProviderIconPlan.quota(snapshot: self.menuBarUsageSource(for: provider).snapshot)
         let stale = self.menuBarIsStale(for: provider)
         let accent = ProviderAccentPalette.color(for: provider)
-        let tint = quota.shortest != nil && !stale && !self.shouldUseHighContrastStatusItemContent && !button
-            .isHighlighted
-            ? NSColor(srgbRed: accent.red, green: accent.green, blue: accent.blue, alpha: 1) : nil
+        let tint = NSColor(srgbRed: accent.red, green: accent.green, blue: accent.blue, alpha: 1)
         return GroupedTile(
             provider: provider,
             quota: quota,
             stale: stale,
+            loading: quota.shortest == nil || self.isRefreshingLocalMenuBarUsage(provider),
             warning: self.groupedWarning(provider: provider),
             tint: tint,
             flash: self.quotaWarningFlashActive(provider: provider))
     }
 
     private func renderGroupedTile(_ tile: GroupedTile) -> NSImage {
-        let tint: NSColor? = switch tile.warning {
-        case .red: .systemRed
-        case .amber: .systemOrange
-        case .none: tile.tint
-        }
-        let image = GroupedProviderIconComposer.pill(
+        GroupedProviderIconComposer.pill(
             primary: tile.quota.shortest?.remainingPercent,
             secondary: tile.quota.longest?.remainingPercent,
-            color: tint,
-            stale: tile.stale)
-        return tile.flash ? Self.quotaWarningFlashImage(base: image) : image
+            color: tile.tint,
+            stale: tile.stale,
+            loading: tile.loading,
+            warning: tile.warning,
+            flash: tile.flash)
     }
 
     private func groupedQuotaDescription(_ tile: GroupedTile) -> String {
@@ -155,11 +146,15 @@ extension StatusItemController {
         return self.store.enabledFirstPartyProvidersForDisplay().compactMap { provider in
             guard !self.menuBarUsageSource(for: provider).isFleet else { return nil }
             let value: GroupedDailyCost.Value
-                // Provider-specific by design: Grok cost follows CodeBurn's method.
+                // Provider-specific by design: Grok combines native requests, session rollups, and mirrored usage.
                 = if provider == .grok
             {
-                GrokDailyCostCache.shared.today.map {
-                    .estimate($0.usd, unpricedModels: $0.unpricedModels)
+                GrokDailyCostCache.shared.today.map { cost in
+                    if cost.estimated || !cost.unpricedModels.isEmpty {
+                        GroupedDailyCost.Value.estimate(cost.usd, unpricedModels: cost.unpricedModels)
+                    } else {
+                        .exact(cost.usd)
+                    }
                 } ?? .loading
             } else if let snapshot = self.store.tokenSnapshotForCurrentProviderConfig(for: provider)?.snapshot {
                 if let usd = self.menuBarLayoutCosts(provider: provider, now: now).todayUSD {
@@ -172,12 +167,9 @@ extension StatusItemController {
             } else {
                 .loading
             }
-            // Provider-specific by design: only Grok intentionally differs from CodeBurn's long-context tariff.
-            let pricingNote = provider == .grok ? L("grouped_icons_tooltip_grok_pricing") : nil
             return .init(
                 name: ProviderRegistry.shared.metadata[provider]?.displayName ?? provider.rawValue,
-                value: value,
-                pricingNote: pricingNote)
+                value: value)
         }
     }
 
@@ -190,7 +182,7 @@ extension StatusItemController {
     func groupedStoreIconObservationSignatureIfActive() -> String? {
         guard let providers = self.groupedProviders else { return nil }
         let now = Date()
-        // Provider-specific by design: Grok alone needs the CodeBurn log scan, including beyond the tile cap.
+        // Provider-specific by design: refresh Grok local usage even when its tile is beyond the visible cap.
         if self.settings.costUsageEnabled, self.store.enabledFirstPartyProvidersForDisplay().contains(.grok) {
             GrokDailyCostCache.shared.refreshIfNeeded(now: now)
         }

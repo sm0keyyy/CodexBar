@@ -87,7 +87,7 @@ struct GroupedProviderIconComposerTests {
         let color = NSColor(srgbRed: 0.2, green: 0.4, blue: 0.6, alpha: 1)
         let single = GroupedProviderIconComposer.pill(primary: 50, secondary: nil, color: color, stale: false)
         let split = GroupedProviderIconComposer.pill(primary: 50, secondary: 75, color: color, stale: false)
-        let unknown = GroupedProviderIconComposer.pill(primary: nil, secondary: nil, color: nil, stale: false)
+        let unknown = GroupedProviderIconComposer.pill(primary: nil, secondary: nil, color: color, stale: false)
         for image in [single, split, unknown] {
             #expect(image.size == NSSize(width: 24, height: 18))
             let bitmap = try #require(GroupedProviderIconComposer.rasterize(image))
@@ -119,7 +119,7 @@ struct GroupedProviderIconComposerTests {
             #expect(joined.colorAt(x: x, y: 18)?.alphaComponent == 0)
         }
         #expect(!single.isTemplate)
-        #expect(unknown.isTemplate)
+        #expect(!unknown.isTemplate)
     }
 
     @Test func `Claude weekly62 percent remains62 percent of the inner pill despite full alternative caps`() throws {
@@ -179,6 +179,43 @@ struct GroupedProviderIconComposerTests {
         }
         let json = try JSONSerialization.data(withJSONObject: measurements, options: [.sortedKeys])
         try print("GROUPED_PILL_WEEKLY_WIDTH_METRICS \(#require(String(bytes: json, encoding: .utf8)))")
+    }
+
+    @Test func `state cues never change opaque orange fills or their contrast`() throws {
+        let accent = ProviderDescriptorRegistry.descriptor(for: .claude).branding.color
+        let color = NSColor(srgbRed: accent.red, green: accent.green, blue: accent.blue, alpha: 1)
+        for appearanceName in [NSAppearance.Name.aqua, .darkAqua] {
+            let appearance = try #require(NSAppearance(named: appearanceName))
+            for state in 0..<6 {
+                var rendered: NSBitmapImageRep?
+                appearance.performAsCurrentDrawingAppearance {
+                    rendered = GroupedProviderIconComposer.rasterize(GroupedProviderIconComposer.pill(
+                        primary: 95,
+                        secondary: 62,
+                        color: color,
+                        stale: state == 1,
+                        loading: state == 2,
+                        warning: state == 3 ? .amber : state >= 4 ? .red : .none,
+                        flash: state == 5))
+                }
+                let bitmap = try #require(rendered)
+                let week = try #require(bitmap.colorAt(x: 12, y: 20)?.usingColorSpace(.sRGB))
+                let session = try #require(bitmap.colorAt(x: 12, y: 16))
+                let track = try #require(bitmap.colorAt(x: 42, y: 20))
+                #expect(week.alphaComponent == 1)
+                #expect(session.alphaComponent == 1)
+                #expect(track.alphaComponent == 1)
+                #expect(week.saturationComponent >= 0.5)
+                #expect(week.hueComponent < 0.1)
+                let weekLab = GroupedProviderIconComposer.lab(week)
+                let sessionLab = GroupedProviderIconComposer.lab(session)
+                let trackLab = GroupedProviderIconComposer.lab(track)
+                #expect(GroupedProviderIconComposer.deltaE(weekLab, GroupedProviderIconComposer.lab(color)) < 1)
+                #expect(GroupedProviderIconComposer.deltaE(weekLab, sessionLab) >= 15)
+                #expect(GroupedProviderIconComposer.deltaE(weekLab, trackLab) >= 15)
+                #expect(GroupedProviderIconComposer.deltaE(sessionLab, trackLab) >= 15)
+            }
+        }
     }
 
     @Test func `perceptual color distance matches published CIEDE2000 reference pairs`() {

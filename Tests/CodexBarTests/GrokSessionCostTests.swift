@@ -3,7 +3,7 @@ import Foundation
 import Testing
 @testable import CodexBar
 
-struct GrokCodeBurnCostTests {
+struct GrokSessionCostTests {
     private var calendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: -7 * 3600)!
@@ -28,15 +28,15 @@ struct GrokCodeBurnCostTests {
         """
     }
 
-    private func scan(_ log: String = "", sessions: [GrokCodeBurnCost.Session] = []) -> GrokDayCost {
-        GrokCodeBurnCost.today(unifiedLog: log, sessions: sessions, now: self.now, calendar: self.calendar)
+    private func scan(_ log: String = "", sessions: [GrokSessionCost.Session] = []) -> GrokDayCost {
+        GrokSessionCost.today(unifiedLog: log, sessions: sessions, now: self.now, calendar: self.calendar)
     }
 
     private func session(
         updates: String,
         model: String = "grok-4.6",
         id: String = "s1",
-        date: String = "2026-11-01T18:00:00Z") -> GrokCodeBurnCost.Session
+        date: String = "2026-11-01T18:00:00Z") -> GrokSessionCost.Session
     {
         .init(
             id: id,
@@ -61,6 +61,7 @@ struct GrokCodeBurnCostTests {
 
     @Test func `unified requests use per request tiers and never double price reasoning`() {
         #expect(abs(self.scan(self.request(model: "grok-4.6")).usd - 0.57) < 0.00000001)
+        #expect(!self.scan(self.request(model: "grok-4.6")).estimated)
         let catalog = "{\"msg\":\"model catalog: notifying clients\",\"pid\":123,"
             + "\"ctx\":{\"current_model_id\":\"grok-4.7\"}}\n"
         #expect(abs(self.scan(catalog + self.request()).usd - 0.57) < 0.00000001)
@@ -71,9 +72,10 @@ struct GrokCodeBurnCostTests {
         #expect(abs(self.scan(catalog + log).usd - 0.57) < 0.00000001)
     }
 
-    @Test func `model fallback and rotated session exclusion follow CodeBurn`() {
+    @Test func `model fallback retains session identity without counting rotated logs twice`() {
         let session = self.session(updates: self.completed(input: 3_784_207, cached: 3_020_544, output: 21146))
         #expect(abs(self.scan(sessions: [session]).usd - 6.328948) < 0.00000001)
+        #expect(self.scan(sessions: [session]).estimated)
         let log = self.request(model: "grok-4.6")
         #expect(self.scan(log, sessions: [session]).requestCount == 1)
         #expect(abs(self.scan(self.request(), sessions: [session]).usd - 0.57) < 0.00000001)

@@ -2806,7 +2806,6 @@
 "grouped_icons_budget_subtitle" = "The cost turns amber above this amount. Leave empty to turn it off.";
 "grouped_icons_tooltip_today" = "Today: %@";
 "grouped_icons_tooltip_estimate" = "estimate";
-"grouped_icons_tooltip_grok_pricing" = "Grok uses official xAI prices. CodeBurn can show lower long-context costs.";
 "grouped_icons_tooltip_no_price" = "%@: no price for %@";
 "grouped_icons_tooltip_loading" = "loading";
 "grouped_icons_tooltip_unpriced" = "unpriced";

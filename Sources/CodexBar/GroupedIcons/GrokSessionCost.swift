@@ -9,7 +9,7 @@ struct GrokDayCost: Equatable, Sendable {
     var requestCount = 0
 }
 
-enum GrokCodeBurnCost {
+enum GrokSessionCost {
     struct Session: Sendable {
         let id: String
         let summary: String
@@ -144,7 +144,8 @@ enum GrokCodeBurnCost {
             self.add(
                 model: selected,
                 tokens: .init(fresh: input, output: output, cacheRead: cached, cacheCreation: creation),
-                estimated: turns.keys.contains { completed[$0] == nil },
+                // Session rollups lack the individual request sizes needed to select context tiers.
+                estimated: true,
                 to: &result)
         } else {
             fresh = self.sum(fresh, peak)
@@ -173,7 +174,7 @@ enum GrokCodeBurnCost {
     }
 
     private static func object(_ text: String) -> [String: Any] {
-        // Malformed JSONL records are ignored, matching CodeBurn's parser.
+        // Ignore malformed JSONL records while retaining other usage from the session.
         (try? JSONSerialization.jsonObject(with: Data(text.utf8))) as? [String: Any] ?? [:]
     }
 

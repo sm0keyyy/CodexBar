@@ -14,7 +14,6 @@ struct SettingsStoreGroupedIconTests {
         "grouped_icons_budget_subtitle",
         "grouped_icons_tooltip_today",
         "grouped_icons_tooltip_estimate",
-        "grouped_icons_tooltip_grok_pricing",
         "grouped_icons_tooltip_no_price",
         "grouped_icons_tooltip_loading",
         "grouped_icons_tooltip_unpriced",

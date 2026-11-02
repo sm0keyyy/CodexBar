@@ -92,13 +92,13 @@ final class GrokDailyCostCache {
         let signature = parts.sorted().joined(separator: "|")
         guard signature != previousSignature else { return Scan(signature: signature, cost: nil) }
         let fixtures = try sessions.map { url, modifiedToday in
-            try GrokCodeBurnCost.Session(
+            try GrokSessionCost.Session(
                 id: url.lastPathComponent,
                 summary: self.text(url.appendingPathComponent("summary.json")),
                 signals: modifiedToday ? self.text(url.appendingPathComponent("signals.json")) : "{}",
                 updates: modifiedToday ? self.text(url.appendingPathComponent("updates.jsonl")) : "")
         }
-        var cost = try GrokCodeBurnCost.today(
+        var cost = try GrokSessionCost.today(
             unifiedLog: self.text(log),
             sessions: fixtures,
             now: now,
@@ -106,7 +106,6 @@ final class GrokDailyCostCache {
         cost.usd += mirror?.costUSD ?? 0
         cost.requestCount += mirror?.requestCount ?? 0
         cost.unpricedModels = Array(Set(cost.unpricedModels + unknown)).sorted()
-        cost.estimated = cost.estimated || mirror != nil
         return Scan(signature: signature, cost: cost)
     }
 

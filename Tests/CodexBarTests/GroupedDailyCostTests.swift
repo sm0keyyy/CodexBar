@@ -22,6 +22,13 @@ struct GroupedDailyCostTests {
         #expect(GroupedDailyCost.summary(inputs: [.init(name: "Grok", value: .zero)]).totalUSD == 0)
     }
 
+    @Test func `exact Grok request costs have no estimate marker`() {
+        let exact = GroupedDailyCost.summary(inputs: [.init(name: "Grok", value: .exact(2.185))])
+        #expect(exact.totalUSD == 2.185)
+        #expect(exact.lines.joined().contains("Grok"))
+        #expect(!exact.lines.joined().contains("≈"))
+    }
+
     @Test func `loading and unpriced inputs remain visible without invented dollars`() {
         let loading = GroupedDailyCost.summary(inputs: [.init(name: "Grok", value: .loading)])
         #expect(loading.displayText == nil)

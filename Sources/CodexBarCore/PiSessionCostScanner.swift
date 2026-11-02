@@ -961,7 +961,7 @@ package enum PiSessionCostScanner {
                                 pricingDate: date,
                                 pricingContext: pricingContext)
                             {
-                                // Keep measured zero evidence; skip cache-only assistant responses as CodeBurn does.
+                                // Keep measured zero evidence; count cache-only usage only in model_usage records.
                                 guard usage.totalTokens == 0 || usage.inputTokens > 0 || usage.outputTokens > 0
                                     || (type == "model_usage" && usage.cacheReadTokens > 0) else { return }
                                 add(

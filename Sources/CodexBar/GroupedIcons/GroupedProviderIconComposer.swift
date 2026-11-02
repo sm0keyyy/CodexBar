@@ -64,10 +64,18 @@ enum GroupedProviderIconComposer {
     static let tileSize = NSSize(width: 24, height: 18)
     static let pillRect = NSRect(x: 0, y: 4, width: 24, height: 10)
 
-    static func pill(primary: Double?, secondary: Double?, color: NSColor?, stale: Bool) -> NSImage {
-        let weekly = color ?? .black
-        let session = color != nil && secondary != nil ? self.sessionColor(for: weekly) : weekly
-        let track = color == nil ? NSColor.black : self.trackColor(weekly: weekly, session: session)
+    static func pill(
+        primary: Double?,
+        secondary: Double?,
+        color: NSColor,
+        stale: Bool,
+        loading: Bool = false,
+        warning: GroupedTileWarning.Level = .none,
+        flash: Bool = false) -> NSImage
+    {
+        let weekly = color.withAlphaComponent(1)
+        let session = secondary != nil ? self.sessionColor(for: weekly) : weekly
+        let track = self.trackColor(weekly: weekly, session: session)
         let rect = self.pillRect
         let fillRect = rect.insetBy(dx: 0.5, dy: 0)
         let halfHeight = (rect.height - 0.5) / 2
@@ -76,20 +84,20 @@ enum GroupedProviderIconComposer {
             defer { NSGraphicsContext.restoreGraphicsState() }
             let outline = NSBezierPath(roundedRect: rect, xRadius: 5, yRadius: 5)
             outline.addClip()
-            track.withAlphaComponent(color == nil ? (stale ? 0.08 : 0.18) : (stale ? 0.45 : 1)).setFill()
+            track.setFill()
             rect.fill()
             let fraction = { (percent: Double) in CGFloat(min(100, max(0, percent))) / 100 }
             if let primary {
                 let split = secondary != nil
-                weekly.withAlphaComponent(stale ? 0.45 : 1).setFill()
-                if split { session.withAlphaComponent(stale ? 0.45 : 1).setFill() }
+                weekly.setFill()
+                if split { session.setFill() }
                 NSRect(
                     x: fillRect.minX,
                     y: split ? rect.midY + 0.25 : rect.minY,
                     width: fillRect.width * fraction(primary),
                     height: split ? halfHeight : rect.height).fill()
                 if let secondary {
-                    weekly.withAlphaComponent(stale ? 0.45 : 1).setFill()
+                    weekly.setFill()
                     NSRect(
                         x: fillRect.minX,
                         y: rect.minY,
@@ -97,14 +105,22 @@ enum GroupedProviderIconComposer {
                         height: halfHeight).fill()
                 }
             }
-            weekly.withAlphaComponent(stale ? 0.45 : 1).setStroke()
+            let borderColor: NSColor = switch warning {
+            case .none: weekly
+            case .amber: .systemOrange
+            case .red: .systemRed
+            }
+            borderColor.setStroke()
             let border = NSBezierPath(
                 roundedRect: rect.insetBy(dx: 0.25, dy: 0.25), xRadius: 4.75, yRadius: 4.75)
-            border.lineWidth = 0.5
+            border.lineWidth = flash ? 1 : 0.5
+            if stale || loading || warning != .none {
+                border.setLineDash([1, 1], count: 2, phase: flash ? 1 : 0)
+            }
             border.stroke()
             return true
         }
-        image.isTemplate = color == nil
+        image.isTemplate = false
         return image
     }
 

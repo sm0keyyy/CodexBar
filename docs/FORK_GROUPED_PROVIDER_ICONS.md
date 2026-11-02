@@ -24,8 +24,9 @@ The weekly fill keeps the exact provider brand color, including Claude.
 The session fill derives from that color: lighter and less saturated when feasible, otherwise darker and less saturated.
 Tests require absolute CIELAB lightness separation of at least 20 and CIEDE2000 distance of at least 15 for every palette color.
 They check Aqua and Dark Aqua appearances and require both fill-to-track CIEDE2000 distances to be at least 15.
-The worst selected window supplies the existing amber/red warning tint for the whole pill.
-Stale, highlighted, and increased-contrast states retain their native treatment.
+Stale, refreshing, highlighted, inactive-display, and quota-warning states never replace or fade either fill.
+Stale/loading states use a dashed outline; warnings color that outline amber/red and flash its stroke, not the usage pixels.
+Every pill remains non-template and its interior pixels remain opaque, including on inactive displays.
 The 111-provider palette run checks both appearances (222 measurements).
 Its minimum absolute ΔL* is 20.9828, minimum fill ΔE2000 is 23.0995, and minimum fill-to-track ΔE2000 is 21.0304.
 For Codex, Claude, and Grok, the respective (ΔL*, ΔE2000) pairs are (32.4429, 27.8406), (34.4929, 31.1060), and (34.5000, 31.3325).
@@ -34,13 +35,20 @@ ElevenLabs, Windsurf, Codebuff, Hugging Face, and Vercel use the approved darker
 Equal-duration alternatives retain the authoritative primary/secondary windows instead of replacing the weekly value with an appended model-specific quota.
 The weekly-62% regression measures 28 solid filled pixels across a 46-pixel inner width, within one device pixel of 62%.
 Empty tracks maximize their minimum CIEDE2000 distance from both fills over five neutral candidates.
+The grey-state defect came from the grouped controller selecting a template mask for stale/highlight/contrast states.
+That mask used one fill for both halves; the compositor also multiplied stale alpha by 0.45.
+State regression tests check both appearances, final composition, full alpha, and Claude's rendered orange hue/saturation.
+The real-status-bar proof also retained orange at 95% session / 62% weekly in ready, stale, refreshing,
+highlighted, and inactive/contrast states. Cold loading showed the colored dashed outline without invented usage.
+It ran in a temporary accessory app hosting the isolated test bundle; unbundled SwiftPM helpers cannot reliably register a status item.
+The synthetic status items were removed after capture.
 
 ## Daily cost and budget
 
 Cost tracking must be enabled. The sum includes all enabled first-party providers, not only the six visible tiles.
 Fleet sources are excluded. Codex and Claude use local Cost today, including Pi/OMP assistant and `model_usage` side calls.
 Loading and unpriced providers remain named in the tooltip. No loaded amount means no cost title.
-Grok is always labelled as an estimate. Unknown Grok models cost zero and appear in the tooltip.
+Known per-request Grok token costs use the same unmarked display as Claude/Codex. Only session-rollup or partially unpriced totals retain the estimate marker.
 The budget is USD; zero or an empty field disables it. Only a strictly greater USD total turns the title amber.
 Display conversion uses the existing preferred-currency formatter.
 
@@ -63,7 +71,7 @@ compare its model breakdown rather than its empty native-provider rows.
 - CodeBurn 0.9.27's fallback calculation applies that tier only to canonical `grok-4.6`.
   Its OMP parser retains nonzero recorded USD, so already-correct recorded Grok calls can still match.
   When CodeBurn recomputes an unrecorded long-context Grok call, the fork intentionally shows more.
-  The tooltip states this difference.
+  This comparison stays in internal documentation and fixtures, never in product UI.
 
 Native logs live under `$GROK_HOME`, or the existing Grok home helper's default.
 A native session directory counts only if no valid inference request in the retained log identifies it.
@@ -87,7 +95,7 @@ The fixture corpus preserves directory depth; flattening it would incorrectly hi
 Native Claude/Codex scanners also use `CostUsagePricing` and their existing request-pricing evidence.
 The shared resolvers normalize aliases, apply explicit route/custom overrides and historical rates, then consult models.dev and bundled rates.
 Unknown models without valid recorded USD or a matching tariff stay unpriced; token and request evidence remains in the report.
-Grok's native `GrokCodeBurnCost` and mirrored `computedCostUSD` both call `GroupedCostPriceTable.cost`.
+Grok's native `GrokSessionCost` and mirrored `computedCostUSD` both call `GroupedCostPriceTable.cost`.
 That file strips a route prefix, applies explicit aliases, then exact or longest known family-prefix lookup.
 Unknown Grok families return no price, contribute no USD, and remain named in the tooltip.
 No grouped Claude, Codex, or Grok amount comes from a live billing API, account balance, or credit delta.
@@ -127,7 +135,7 @@ It keeps grouped strings in English in every locale, as the spec requires, witho
 ## Tests and gates
 
 Run the grouped suites: `GroupedProviderIconComposerTests`, `GroupedProviderIconPlanTests`,
-`GroupedDailyCostTests`, `GrokCodeBurnCostTests`, `GroupedCostParityTests`,
+`GroupedDailyCostTests`, `GrokSessionCostTests`, `GroupedCostParityTests`,
 `GroupedProviderIconStatusItemTests`, and `SettingsStoreGroupedIconTests`.
 The settings suite checks all 23 locale catalogs for the same grouped keys.
 
@@ -142,10 +150,15 @@ make test
 
 `test-fast` wraps `swift test --filter` with the repository's isolated, credential-scrubbed test environment.
 Do not run live account probes or permit Keychain access for these gates.
-The macOS test bundle links `CodexBarTestBootstrap`, a test-only Objective-C load-time initializer.
-It sets `NSApplication` activation policy to `prohibited` before Swift test discovery so AppKit tests do not register Dock apps.
-`AppKitBootstrapTests` checks early policy installation and offscreen bitmap rendering. Production targets do not link this support.
-After the final test run, restart Dock once if older test processes left stale icons.
+All three AppKit-linked test bundles (`CodexBarTests`, `CodexBarPluginTests`, and macOS `CodexBarLinuxTests`) link `CodexBarTestBootstrap`.
+Its load-time initializer sets `NSApplication` policy to `prohibited` before test discovery.
+Window tests and opt-in native proofs use `accessory`, not `regular`, so showing a test window cannot register a Dock app.
+The earlier bootstrap covered only one bundle and tests could override it with `regular`; startup-only assertions did not cover those transitions.
+`AppKitBootstrapTests` checks initialization and bitmap rendering. Full-run Dock monitoring is the end-to-end receipt; production targets do not link this support.
+The 2026-11-01 full direct-worker run passed all 162 groups without retries.
+Dock accessibility was sampled 468 times at a 500 ms target interval over 234 seconds:
+zero `xctest` items before, throughout, and after, with no query failures or Dock restart.
+`CODEXBAR_GROUPED_COLOR_PROOF_DIR` enables a credential-isolated real-status-item proof with controlled quota fixtures and file-selected states.
 A failed S1, S2, S3, or S5 guard means the corresponding upstream hook or mirror needs attention.
 `GroupedCostParityTests` uses sanitized recorded Pi/OMP usage and expected output from installed CodeBurn 0.9.27.
 Its explicit `CODEXBAR_GROUPED_COST_CORPUS` mode accepts only a supplied sanitized corpus and prints model/day totals.
@@ -218,3 +231,15 @@ The login-shell capture uses `$SHELL -l -i -c` with a six-second timeout and sta
 A missing version can therefore mean a suppressed probe, not a missing executable.
 App Auto prefers OAuth before CLI and Web. OAuth does not require Claude Code's own login or binary.
 The operator's stale Claude Code login recovered after the operator reauthenticated; no detection code was changed for that state.
+
+### Recurring Claude credential access
+
+Stable signing does not prevent Claude Code from rewriting its credential item or changing its ACL during renewal.
+The operator chose **Settings → Providers → Claude → Keychain prompt policy → Always allow prompts**, with Usage source **Auto**.
+The release defaults key is `com.steipete.codexbar` / `claudeOAuthKeychainPromptMode`, string value `always`.
+Turning off “Avoid Keychain prompts” alone selects `onlyOnUserAction`, not `always`.
+The upstream `never` guard stays unchanged. `always` permits the existing identifiable-profile owner-CLI fallback after typed credential absence.
+It permits prompts; it does not guarantee silent operation after renewal or relaunch.
+The CLI-success throttle cache is process-local, valid for less than fifteen minutes or until reset, and is lost on relaunch.
+Malformed, denied, unidentified, or revoked credentials still fail closed. This fork does not rotate Claude Code tokens.
+See <https://github.com/steipete/CodexBar/issues/3798#issuecomment-6048256920> for the maintainer's ACL-renewal explanation.

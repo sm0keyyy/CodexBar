@@ -89,6 +89,7 @@ struct GroupedCostParityTests {
             previousSignature: nil,
             mirrors: mirrors(1))
         #expect(abs((first.cost?.usd ?? 0) - 1.185) < 1e-8)
+        #expect(first.cost?.estimated == false)
         let unchanged = try GrokDailyCostCache.scan(
             home: env.root,
             now: now,
@@ -103,15 +104,17 @@ struct GroupedCostParityTests {
             previousSignature: first.signature,
             mirrors: mirrors(2))
         #expect(abs((changed.cost?.usd ?? 0) - 2.185) < 1e-8)
-        let summary = GroupedDailyCost.summary(inputs: [.init(
-            name: "Grok", value: .estimate(2.185, unpricedModels: []), pricingNote: "Official xAI pricing")])
-        #expect(summary.lines.contains("Official xAI pricing"))
+        #expect(changed.cost?.estimated == false)
+        let summary = GroupedDailyCost.summary(inputs: [.init(name: "Grok", value: .exact(2.185))])
+        #expect(!summary.lines.joined().contains("≈"))
         let unpriced = try GrokDailyCostCache.scan(
             home: env.root,
             now: now,
             calendar: .current,
             previousSignature: nil,
             mirrors: mirrors(0, unknown: "grok-unknown-a"))
+        #expect(unpriced.cost?.unpricedModels == ["grok-unknown-a"])
+        #expect(unpriced.cost?.estimated == false)
         let renamed = try GrokDailyCostCache.scan(
             home: env.root,
             now: now,

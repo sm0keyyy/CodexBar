@@ -6,6 +6,16 @@ import Testing
 @MainActor
 @Suite(.serialized)
 struct GroupedProviderIconStatusItemTests {
+    @MainActor
+    private final class NativeProofState {
+        var previous = ""
+        var previousFrame = NSRect.zero
+        var completed = false
+        var finished = false
+        var announced = false
+        var failure: (any Error)?
+    }
+
     private func harness() -> (SettingsStore, UsageStore, StatusItemController) {
         StatusItemController.menuCardRenderingEnabled = false
         StatusItemController.setMenuRefreshEnabledForTesting(false)
@@ -101,7 +111,7 @@ struct GroupedProviderIconStatusItemTests {
         #expect(controller.statusItems.count == 3)
     }
 
-    @Test func `S5 all providers use equal pills with colored measured quotas and native loading outlines`() throws {
+    @Test func `S5 all providers keep colored pills including cold loading outlines`() throws {
         let (_, store, controller) = self.harness()
         defer { controller.releaseStatusItemsForTesting() }
         let button = try #require(controller.statusItem.button)
@@ -112,11 +122,11 @@ struct GroupedProviderIconStatusItemTests {
             store._setSnapshotForTesting(nil, provider: provider)
             let loading = controller.groupedTileImage(provider: provider, button: button)
             #expect(loading.size == measured.size)
-            #expect(loading.isTemplate)
+            #expect(!loading.isTemplate)
         }
     }
 
-    @Test func `S6 brand colors include Claude and worst quota warning tints only its pill`() throws {
+    @Test func `S6 warnings mark the outline without replacing provider fill colors`() throws {
         let (settings, store, controller) = self.harness()
         defer { controller.releaseStatusItemsForTesting() }
         let button = try #require(controller.statusItem.button)
@@ -138,7 +148,9 @@ struct GroupedProviderIconStatusItemTests {
             controller.groupedTileImage(provider: .claude, button: button)))
         let warningFill = try #require(warned.colorAt(x: 20, y: 20))
         #expect(GroupedProviderIconComposer.deltaE(
-            GroupedProviderIconComposer.lab(warningFill), GroupedProviderIconComposer.lab(.systemRed)) < 1)
+            GroupedProviderIconComposer.lab(warningFill),
+            GroupedProviderIconComposer.lab(NSColor(srgbRed: 204 / 255, green: 124 / 255, blue: 94 / 255, alpha: 1))) <
+            1)
         settings.setQuotaWarningWindowEnabled(.weekly, enabled: true)
         settings.setQuotaWarningThresholds(.weekly, thresholds: [50, 20])
         store._setSnapshotForTesting(UsageSnapshot(
@@ -206,6 +218,134 @@ struct GroupedProviderIconStatusItemTests {
         #expect(button.toolTip?.contains("Claude") == true)
         #expect(button.toolTip?.contains("80%") == true)
         #expect(button.toolTip?.contains("75%") == true)
+    }
+
+    @Test func `Claude brand survives stale refreshing highlight and inactive contrast composition`() throws {
+        let (settings, store, controller) = self.harness()
+        defer { controller.releaseStatusItemsForTesting() }
+        let button = try #require(controller.statusItem.button)
+        for appearanceName in [NSAppearance.Name.aqua, .darkAqua] {
+            button.appearance = try #require(NSAppearance(named: appearanceName))
+            for state in ["ready", "stale", "refreshing", "highlighted", "inactive-contrast"] {
+                store._setErrorForTesting(state == "stale" ? "Credentials changed" : nil, provider: .claude)
+                store.refreshingProviders = state == "refreshing" ? [.claude] : []
+                button.highlight(state == "highlighted")
+                settings.menuBarIconStyle = .iconAndPercent
+                settings.menuBarHighContrastOnInactiveDisplays = state == "inactive-contrast"
+                controller.applyIcon(phase: nil)
+                let attachment = button.attributedTitle.length > 0
+                    ? button.attributedTitle
+                    .attribute(.attachment, at: 0, effectiveRange: nil) as? NSTextAttachment : nil
+                let image = try #require(button.image ?? attachment?.image)
+                #expect(!image.isTemplate, "\(state) \(appearanceName.rawValue)")
+                let bitmap = try #require(GroupedProviderIconComposer.rasterize(image))
+                let week = try #require(bitmap.colorAt(x: 63, y: 20)?.usingColorSpace(.sRGB))
+                let session = try #require(bitmap.colorAt(x: 63, y: 16))
+                #expect(week.alphaComponent == 1)
+                #expect(session.alphaComponent == 1)
+                #expect(week.saturationComponent >= 0.5)
+                #expect(week.hueComponent < 0.1)
+                #expect(GroupedProviderIconComposer.deltaE(
+                    GroupedProviderIconComposer.lab(week), GroupedProviderIconComposer.lab(session)) >= 15)
+            }
+        }
+    }
+
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["CODEXBAR_GROUPED_COLOR_PROOF_DIR"] != nil))
+    func `native grouped color proof through the real status bar`() throws {
+        let environment = ProcessInfo.processInfo.environment
+        try #require(SettingsStore.isRunningTests && environment["CODEXBAR_SUPPRESS_TEST_KEYCHAIN_ACCESS"] == "1")
+        let directory = try URL(fileURLWithPath: #require(environment["CODEXBAR_GROUPED_COLOR_PROOF_DIR"]))
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let app = NSApplication.shared
+        let oldPolicy = app.activationPolicy()
+        _ = app.setActivationPolicy(.accessory)
+        app.finishLaunching()
+        let (settings, store, controller) = self.harness()
+        let label = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        defer {
+            controller.releaseStatusItemsForTesting()
+            NSStatusBar.system.removeStatusItem(label)
+            _ = app.setActivationPolicy(oldPolicy)
+        }
+        let button = try #require(controller.statusItem.button)
+        let snapshot = UsageSnapshot(
+            primary: RateWindow(usedPercent: 5, windowMinutes: 300, resetsAt: nil, resetDescription: nil),
+            secondary: RateWindow(usedPercent: 38, windowMinutes: 10080, resetsAt: nil, resetDescription: nil),
+            updatedAt: Date())
+        let deadline = Date().addingTimeInterval(300)
+        let proof = NativeProofState()
+        let tick: @MainActor @Sendable () -> Void = {
+            guard !proof.finished else { return }
+            defer {
+                if proof.finished {
+                    app.stop(nil)
+                    if let wake = NSEvent.otherEvent(
+                        with: .applicationDefined,
+                        location: .zero,
+                        modifierFlags: [],
+                        timestamp: 0,
+                        windowNumber: 0,
+                        context: nil,
+                        subtype: 0,
+                        data1: 0,
+                        data2: 0)
+                    {
+                        app.postEvent(wake, atStart: false)
+                    }
+                }
+            }
+            do {
+                let state = (try? String(contentsOf: directory.appendingPathComponent("state.txt"), encoding: .utf8)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)) ?? "ready"
+                if state == "done" {
+                    proof.completed = true
+                    proof.finished = true
+                    return
+                }
+                guard Date() < deadline else { proof.finished = true; return }
+                if state != proof.previous || button.window?.frame != proof.previousFrame {
+                    proof.previous = state
+                    controller.statusItem.isVisible = true
+                    label.isVisible = true
+                    proof.previousFrame = button.window?.frame ?? .zero
+                    store._setSnapshotForTesting(state == "cold" ? nil : snapshot, provider: .claude)
+                    store._setErrorForTesting(state == "stale" ? "Synthetic stale credentials" : nil, provider: .claude)
+                    store.refreshingProviders = state == "refreshing" || state == "cold" ? [.claude] : []
+                    button.highlight(state == "highlighted")
+                    settings.menuBarIconStyle = .iconAndPercent
+                    settings.menuBarHighContrastOnInactiveDisplays = state == "inactive-contrast"
+                    controller.applyIcon(phase: nil)
+                    label.button?.title = "Synthetic color proof: \(state)"
+                    button.window?.displayIfNeeded()
+                    let receipt: [String: Any] = [
+                        "pid": ProcessInfo.processInfo.processIdentifier,
+                        "state": state, "window": button.window?.windowNumber ?? -1,
+                        "frame": NSStringFromRect(button.window?.frame ?? .zero),
+                        "appRunning": app.isRunning,
+                        "appActive": app.isActive, "policy": app.activationPolicy().rawValue,
+                        "stale": store.isStale(provider: .claude),
+                        "refreshing": store.refreshingProviders.contains(.claude),
+                    ]
+                    try JSONSerialization.data(withJSONObject: receipt, options: [.sortedKeys])
+                        .write(to: directory.appendingPathComponent("receipt.json"), options: .atomic)
+                    if !proof.announced, (button.window?.frame.height ?? 0) > 0 {
+                        proof.announced = true
+                        print("GROUPED_COLOR_PROOF_READY")
+                    }
+                }
+            } catch {
+                proof.failure = error
+                proof.finished = true
+            }
+        }
+        let timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
+            MainActor.assumeIsolated { tick() }
+        }
+        defer { timer.invalidate() }
+        app.run()
+        if let failure = proof.failure { throw failure }
+        #expect(proof.completed, "Native color proof timed out before receiving done.")
     }
 
     @Test func `cache scan distinguishes missing sources unchanged inputs and read errors`() throws {
