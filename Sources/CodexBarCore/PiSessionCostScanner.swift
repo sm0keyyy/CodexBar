@@ -135,7 +135,9 @@ package enum PiSessionCostScanner {
         for root in roots {
             guard root.resolutionIsComplete else { throw CocoaError(.fileReadUnknown) }
             let inventory = self.listPiSessionFiles(
-                root: root.url, startCutoffLocal: cutoff, calendar: calendar,
+                root: root.url,
+                startCutoffLocal: cutoff,
+                calendar: calendar,
                 missingIsKnownEmpty: root.missingIsKnownEmpty)
             guard inventory.isComplete else { throw CocoaError(.fileReadUnknown) }
             for file in inventory.files {
