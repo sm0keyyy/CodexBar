@@ -964,8 +964,7 @@ package enum PiSessionCostScanner {
                         return
                     }
                     autoreleasepool {
-                        guard let objectValue = try? JSONSerialization.jsonObject(with: line.bytes),
-                              let object = objectValue as? [String: Any]
+                        guard let object = PiSessionCostJSON.parse(line.bytes)
                         else {
                             // A terminated but malformed/non-object record means the file was not
                             // fully interpreted; keep the prior cache snapshot and retry later.
@@ -1226,6 +1225,9 @@ package enum PiSessionCostScanner {
     private static func parseTimestampValue(_ value: Any?) -> Date? {
         let raw: Double
         switch value {
+        case let number as PiSessionJSONNumber:
+            guard let value = number.foundationNumber else { return nil }
+            raw = value.doubleValue
         case let number as NSNumber:
             // JSON booleans bridge to NSNumber on Darwin; they are not timestamps.
             guard CFGetTypeID(number) != CFBooleanGetTypeID() else { return nil }
@@ -1307,11 +1309,12 @@ package enum PiSessionCostScanner {
             cacheWriteTokens: cacheWrite,
             outputTokens: output,
             totalTokens: totalTokens)
-        let reported = (usage["cost"] as? [String: Any])?["total"] as? NSNumber
+        let reported = (usage["cost"] as? [String: Any])?["total"] as? PiSessionJSONNumber
         let recordedCost = reported.flatMap { value -> Double? in
-            guard CFGetTypeID(value) != CFBooleanGetTypeID(),
-                  value.doubleValue.isFinite, value.doubleValue > 0 else { return nil }
-            return value.doubleValue
+            guard provider == .claude || provider == .codex,
+                  let number = value.foundationNumber,
+                  number.doubleValue.isFinite, number.doubleValue > 0 else { return nil }
+            return number.doubleValue
         }
         // Provider-specific by design: Claude/Codex preserve recorded USD; Grok uses the official tariff.
         let preservesRecordedCost = provider == .claude || provider == .codex
@@ -1397,8 +1400,17 @@ package enum PiSessionCostScanner {
         }
     }
 
-    private static func readNonNegativeInt(_ value: Any?) -> Int? {
+    static func readNonNegativeInt(_ value: Any?) -> Int? {
         guard let value else { return 0 }
+        if let number = value as? PiSessionJSONNumber {
+            switch number {
+            case let .integer(integer):
+                return integer >= 0 ? integer : nil
+            case .lexeme:
+                guard let legacy = number.foundationNumber else { return nil }
+                return self.readNonNegativeInt(legacy)
+            }
+        }
         let text: String
         if let number = value as? NSNumber {
             guard CFGetTypeID(number) != CFBooleanGetTypeID() else { return nil }
