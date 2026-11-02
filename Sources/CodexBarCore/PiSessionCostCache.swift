@@ -112,7 +112,7 @@ struct PiSessionFileUsage: Codable, Equatable {
     var requiresFullReparseOnChange: Bool {
         self.hasUndatedUnsupportedAssistant || !self.unsupportedAssistantDayKeys.isEmpty ||
             self.contributions.contains { provider, days in
-                // Standalone backends can be intentionally unpriced; catalog changes already reparse them.
+                // Provider-specific by design: standalone Pi backends can be unpriced; catalog changes reparse them.
                 guard provider != UsageProvider.pi.rawValue else { return false }
                 return days.values.contains { models in
                     models.values.contains { ($0.usageSampleCount ?? 0) > $0.costSampleCount }
