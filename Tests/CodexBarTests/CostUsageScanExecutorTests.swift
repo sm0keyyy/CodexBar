@@ -38,6 +38,30 @@ struct CostUsageScanExecutorTests {
     }
 
     @Test
+    func `a blocked Grok scan cannot hold a Claude result`() async throws {
+        let started = LockedValue(false)
+        let completed = LockedValue(false)
+        let release = DispatchSemaphore(value: 0)
+        let grok = Task {
+            try await CostUsageScanExecutor.run(provider: .grok) { _ in
+                started.set(true)
+                _ = release.wait(timeout: .now() + 5)
+            }
+        }
+        #expect(await self.waitUntil { started.value })
+        let claude = Task {
+            try await CostUsageScanExecutor.run(provider: .claude) { _ in
+                completed.set(true)
+            }
+        }
+        let independent = await self.waitUntil { completed.value }
+        release.signal()
+        try await grok.value
+        try await claude.value
+        #expect(independent)
+    }
+
+    @Test
     func `propagates thrown errors`() async {
         struct ScanFailure: Error {}
         let queue = self.makeQueue()

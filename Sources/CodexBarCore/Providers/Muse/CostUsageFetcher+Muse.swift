@@ -14,7 +14,7 @@ extension CostUsageFetcher {
         let sinceKey = CostUsageLocalDay.key(from: since, calendar: calendar)
         let untilKey = CostUsageLocalDay.key(from: now, calendar: calendar)
         let cacheRoot = options.cacheRoot ?? context.defaultCacheRoot
-        let result = try await CostUsageScanExecutor.run { cancellation in
+        let result = try await CostUsageScanExecutor.run(provider: .muse) { cancellation in
             try MuseLocalUsageReader.makeDailyReportWithStatus(
                 context: context,
                 calendar: calendar,

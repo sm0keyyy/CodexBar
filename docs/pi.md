@@ -53,6 +53,8 @@ Files replaced while being read leave the refresh incomplete. A pricing-catalog 
 
 Unchanged refreshes reuse retained shards and write nothing, including when only the successful scan time advances. Appended records update only their source shard and the manifest. Wider scan coverage survives narrower report requests, so alternating windows does not reparse unchanged files. Explicit refresh still validates complete source contents; equal records produce identical archives and do not rewrite shards.
 
+Provider cost scans use separate serial utility lanes. Pi mirror reads share one scanner lock to avoid duplicate corpus parsing. Grok checks source scope, pricing, and file metadata before rebuilding its mirror report; unchanged sources reuse the published report.
+
 The one-hour counter correction invalidates the Pi pricing key once, including estimates mirrored into Claude or Codex reports. Existing Pi cache rows do not retain the one-hour split, so all Pi sessions in the scan window must be reparsed before publishing corrected prices. The cache schema and native Claude/Codex caches are unchanged; subsequent refreshes resume normal cache reuse.
 
 The addition of unsupported-backend token history also invalidates the Pi pricing key once so previously ignored rows are collected. The cache schema stays unchanged.

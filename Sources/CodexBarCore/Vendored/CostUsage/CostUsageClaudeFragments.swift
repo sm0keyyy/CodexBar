@@ -136,8 +136,11 @@ final class CostUsageClaudeFragments: @unchecked Sendable {
                    })
                 {
                     self.remember(url, Snapshot(
-                        stamp: current.stamp, manifest: current.manifest,
-                        values: values, header: header, contentID: contentID))
+                        stamp: current.stamp,
+                        manifest: current.manifest,
+                        values: values,
+                        header: header,
+                        contentID: contentID))
                     return current.stamp
                 }
                 let encoder = JSONEncoder()

@@ -176,7 +176,7 @@ public enum GrokLocalSessionScanner {
         lookbackDays: Int = defaultLookbackDays,
         now: Date = .init()) async throws -> GrokLocalSessionSummary
     {
-        try await CostUsageScanExecutor.run { checkCancellation in
+        try await CostUsageScanExecutor.run(provider: .grok) { checkCancellation in
             try checkCancellation()
             let summary = Self.summarize(env: env, lookbackDays: lookbackDays, now: now)
             try checkCancellation()

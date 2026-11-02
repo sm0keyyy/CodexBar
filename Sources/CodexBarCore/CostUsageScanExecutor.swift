@@ -1,15 +1,22 @@
 import Foundation
 
-/// Cost-usage scans read and parse the full local session corpus synchronously and can run for
-/// minutes on large archives. Executing that work inline on Swift's cooperative thread pool
-/// starves every other async task in the process — menus freeze while the main thread sits idle —
-/// and overlapping provider scans multiply both the pool pressure and the disk load. This
-/// executor pins all corpus scans to a single serial utility queue off the cooperative pool, so
-/// long scans cost one dedicated thread instead of the app's async runtime.
+/// Synchronous scans run off the cooperative pool. Each provider has a serial utility
+/// lane, so one provider's archive cannot hold another provider behind its work.
 public enum CostUsageScanExecutor {
     public static let queueLabel = "com.steipete.codexbar.cost-usage-scan"
 
     private static let queue = DispatchQueue(label: queueLabel, qos: .utility)
+    private static let providerQueues = LockedState<[UsageProvider: DispatchQueue]>([:])
+
+    private static func queue(for provider: UsageProvider?) -> DispatchQueue {
+        guard let provider else { return self.queue }
+        return self.providerQueues.withLock { queues in
+            if let queue = queues[provider] { return queue }
+            let queue = DispatchQueue(label: "\(self.queueLabel).\(provider.rawValue)", qos: .utility)
+            queues[provider] = queue
+            return queue
+        }
+    }
 
     package struct TimedResult<Value: Sendable>: Sendable {
         package let value: Value
@@ -22,10 +29,11 @@ public enum CostUsageScanExecutor {
     }
 
     package static func runTimed<T: Sendable>(
+        provider: UsageProvider? = nil,
         _ work: @escaping @Sendable (_ checkCancellation: @escaping @Sendable () throws -> Void) throws -> T)
         async throws -> TimedResult<T>
     {
-        try await self.runTimed(on: self.queue, work)
+        try await self.runTimed(on: self.queue(for: provider), work)
     }
 
     static func runTimed<T: Sendable>(
@@ -149,10 +157,11 @@ public enum CostUsageScanExecutor {
     /// awaiting task is cancelled resumes immediately with `CancellationError` instead of
     /// waiting behind an in-flight scan.
     public static func run<T: Sendable>(
+        provider: UsageProvider? = nil,
         _ work: @escaping @Sendable (_ checkCancellation: @escaping @Sendable () throws -> Void) throws -> T)
         async throws -> T
     {
-        try await self.run(on: self.queue, work)
+        try await self.run(on: self.queue(for: provider), work)
     }
 
     static func run<T: Sendable>(

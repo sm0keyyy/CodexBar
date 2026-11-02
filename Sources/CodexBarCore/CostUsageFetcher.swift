@@ -33,7 +33,7 @@ public struct CostUsageFetcher: Sendable {
 
     package static func piRootScope(environment: [String: String]) async throws -> String {
         let contexts = await LocalAgentSessionScanner().piSessionProcessContexts(environment: environment)
-        return try await CostUsageScanExecutor.run { checkCancellation in
+        return try await CostUsageScanExecutor.run(provider: .pi) { checkCancellation in
             try checkCancellation()
             return PiSessionCostScanner.scopeFingerprint(
                 options: PiSessionCostScanner.Options(
@@ -343,7 +343,7 @@ public struct CostUsageFetcher: Sendable {
             self.scannerOptions(calendar: calendar, includeOpenCodeLocalHistory: includeOpenCodeLocalHistory),
             provider: .codex,
             codexHomePath: codexHomePath)
-        return await (try? CostUsageScanExecutor.run { checkCancellation in
+        return await (try? CostUsageScanExecutor.run(provider: .codex) { checkCancellation in
             try checkCancellation()
             return Self.codexScanCatchUpStatus(
                 options: options, historyDays: historyDays, now: now, environment: environment)
@@ -379,7 +379,7 @@ public struct CostUsageFetcher: Sendable {
             scope: scope, cacheRoot: options.cacheRoot, calendar: options.calendar)
         let sourceDuration = scope == nil ? 0 : Date().timeIntervalSince(sourceStart)
         // Provider-specific by design: this catch-up step advances only the Codex incremental scanner.
-        let result = try await CostUsageScanExecutor.runTimed { checkCancellation in
+        let result = try await CostUsageScanExecutor.runTimed(provider: .codex) { checkCancellation in
             var options = scanOptions
             let yieldedBeforeAttempt = CostUsageScanExecutor.LockedState(false)
             options.codexScanDidYieldBeforeFileAttempt = { value in yieldedBeforeAttempt.withLock { $0 = value } }
@@ -618,7 +618,7 @@ public struct CostUsageFetcher: Sendable {
         if provider == .opencodego {
             let home = environment["HOME"].map { URL(fileURLWithPath: $0, isDirectory: true) }
                 ?? FileManager.default.homeDirectoryForCurrentUser
-            return try await CostUsageScanExecutor.run { _ in
+            return try await CostUsageScanExecutor.run(provider: .opencodego) { _ in
                 let usage = try OpenCodeGoLocalUsageReader(homeDirectory: home).fetch(
                     now: now, historyDays: clampedHistoryDays, calendar: fallbackCalendar)
                 return CostUsageTokenResult(snapshot: usage.toCostUsageTokenSnapshot(
@@ -924,7 +924,7 @@ public struct CostUsageFetcher: Sendable {
         // Claude/Vertex share the transcript scanner with mutually exclusive filters.
         // These synchronous scans can run for minutes on large archives. The dedicated queue keeps
         // them off the cooperative pool and bridges task cancellation into scanner-level checks.
-        return try await CostUsageScanExecutor.run { checkCancellation in
+        return try await CostUsageScanExecutor.run(provider: provider) { checkCancellation in
             var daily = try CostUsageScanner.loadDailyReportCancellable(
                 provider: provider,
                 since: since,
@@ -1345,7 +1345,7 @@ public struct CostUsageFetcher: Sendable {
         scannerOptions overrideScannerOptions: CostUsageScanner.Options? = nil) async
         -> CostUsageTokenActivityCache?
     {
-        try? await CostUsageScanExecutor.run { _ -> CostUsageTokenActivityCache? in
+        try? await CostUsageScanExecutor.run(provider: .codex) { _ -> CostUsageTokenActivityCache? in
             // Provider-specific by design: cached activity is read from the Codex ledger's fixed scanner scope.
             let options = Self.resolvedScannerOptions(
                 overrideScannerOptions,
@@ -1428,7 +1428,7 @@ public struct CostUsageFetcher: Sendable {
 
         // Snapshot assembly can touch many SQLite rows; keep it off the cooperative pool
         // alongside the scans themselves.
-        return try? await CostUsageScanExecutor.run { check -> CachedCodexTokenSnapshotResult? in
+        return try? await CostUsageScanExecutor.run(provider: .codex) { check -> CachedCodexTokenSnapshotResult? in
             try check()
             let clampedHistoryDays = max(1, historyDays)
             // Provider-specific by design: cached Codex token publication uses the Codex scanner and its roots.
@@ -1607,15 +1607,16 @@ public struct CostUsageFetcher: Sendable {
         hidePersonalInfo: Bool,
         scannerOptions overrideScannerOptions: CostUsageScanner.Options? = nil) async -> CodexLocalProjectUsageSnapshot?
     {
-        let cachedSnapshot: CodexLocalProjectUsageSnapshot?? = try? await CostUsageScanExecutor.run { _ in
-            let options = Self.codexLocalScannerOptions(
-                codexHomePath: codexHomePath,
-                overrideScannerOptions: overrideScannerOptions)
-            return CodexLocalProjectUsageIndexer.cachedSnapshot(
-                now: now,
-                historyDays: historyDays,
-                options: CodexLocalProjectUsageIndexer.Options(scannerOptions: options))
-        }
+        let cachedSnapshot: CodexLocalProjectUsageSnapshot?? = try? await CostUsageScanExecutor
+            .run(provider: .codex) { _ in
+                let options = Self.codexLocalScannerOptions(
+                    codexHomePath: codexHomePath,
+                    overrideScannerOptions: overrideScannerOptions)
+                return CodexLocalProjectUsageIndexer.cachedSnapshot(
+                    now: now,
+                    historyDays: historyDays,
+                    options: CodexLocalProjectUsageIndexer.Options(scannerOptions: options))
+            }
         return cachedSnapshot.flatMap(\.self)?.hidingPersonalInformation(hidePersonalInfo)
     }
 
@@ -1633,7 +1634,7 @@ public struct CostUsageFetcher: Sendable {
             codexHomePath: codexHomePath,
             overrideScannerOptions: overrideScannerOptions)
         let scanOptions = options
-        let snapshot = try await CostUsageScanExecutor.run { checkCancellation in
+        let snapshot = try await CostUsageScanExecutor.run(provider: .codex) { checkCancellation in
             try CodexLocalProjectUsageIndexer.loadSnapshot(
                 now: now,
                 historyDays: historyDays,
@@ -1649,7 +1650,7 @@ public struct CostUsageFetcher: Sendable {
         codexHomePath: String? = nil,
         scannerOptions overrideScannerOptions: CostUsageScanner.Options? = nil) async
     {
-        _ = try? await CostUsageScanExecutor.run { _ in
+        _ = try? await CostUsageScanExecutor.run(provider: .codex) { _ in
             let options = Self.codexLocalScannerOptions(
                 codexHomePath: codexHomePath,
                 overrideScannerOptions: overrideScannerOptions)
@@ -1739,7 +1740,7 @@ public struct CostUsageFetcher: Sendable {
         calendar: Calendar = .current,
         pricingCacheRoot: URL?) async throws -> CostUsageTokenSnapshot?
     {
-        let reportResult = try await CostUsageScanExecutor.run { checkCancellation in
+        let reportResult = try await CostUsageScanExecutor.run(provider: .antigravity) { checkCancellation in
             try AntigravityLocalReader.makeDailyReportWithStatus(
                 context: context,
                 calendar: calendar,

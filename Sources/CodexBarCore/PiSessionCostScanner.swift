@@ -109,6 +109,49 @@ package enum PiSessionCostScanner {
     private static let sessionStartFilenameRegex = try? NSRegularExpression(
         pattern: "^(\\d{4}-\\d{2}-\\d{2})T(\\d{2})-(\\d{2})-(\\d{2})-(\\d{3})Z_")
     private static let isoFormatterBox = PiSessionISO8601FormatterBox()
+    private static let scanLock = NSLock()
+
+    package struct GrokSourceSignature: Equatable, Sendable {
+        fileprivate let scope: String
+        fileprivate let pricing: String
+        fileprivate let since: String
+        fileprivate let timeZone: String
+        fileprivate let until: String
+        fileprivate let files: [String: SessionFileMetadata]
+    }
+
+    package static func grokSourceSignature(now: Date, calendar: Calendar) throws -> GrokSourceSignature {
+        try self.grokSourceSignature(now: now, calendar: calendar, options: Options(calendar: calendar))
+    }
+
+    static func grokSourceSignature(now: Date, calendar: Calendar, options: Options) throws -> GrokSourceSignature {
+        let since = calendar.date(byAdding: .day, value: -30, to: now) ?? now
+        let range = CostUsageScanner.CostUsageDayRange(since: since, until: now, calendar: calendar)
+        let cache = PiSessionCostCacheIO.load(cacheRoot: options.cacheRoot)
+        let roots = self.defaultSessionRoots(
+            options: options, previousSessionRootsFingerprint: cache.sessionRootsFingerprint)
+        let cutoff = self.dateFromDayKey(range.scanSinceKey, calendar: calendar) ?? since
+        var files: [String: SessionFileMetadata] = [:]
+        for root in roots {
+            guard root.resolutionIsComplete else { throw CocoaError(.fileReadUnknown) }
+            let inventory = self.listPiSessionFiles(
+                root: root.url, startCutoffLocal: cutoff, calendar: calendar,
+                missingIsKnownEmpty: root.missingIsKnownEmpty)
+            guard inventory.isComplete else { throw CocoaError(.fileReadUnknown) }
+            for file in inventory.files {
+                let url = self.canonicalSessionFileURL(file)
+                guard let metadata = self.sessionFileMetadata(at: url) else { throw CocoaError(.fileReadUnknown) }
+                files[url.path] = metadata
+            }
+        }
+        return GrokSourceSignature(
+            scope: self.sessionRootsFingerprint(roots),
+            pricing: self.pricingContext(now: now, cacheRoot: options.cacheRoot).pricingKey,
+            since: range.scanSinceKey,
+            timeZone: calendar.timeZone.identifier,
+            until: range.scanUntilKey,
+            files: files)
+    }
 
     package static func grokDailyReport(
         since: Date,
@@ -179,6 +222,8 @@ package enum PiSessionCostScanner {
         options: Options = Options(),
         checkCancellation: CostUsageScanner.CancellationCheck?) throws -> DailyReportResult
     {
+        self.scanLock.lock()
+        defer { self.scanLock.unlock() }
         // Provider-specific by design: Pi exposes native vendor mirrors and its standalone backend history.
         guard provider == .codex || provider == .claude || provider == .grok || provider == .pi else {
             return DailyReportResult(
@@ -622,7 +667,7 @@ package enum PiSessionCostScanner {
         let isComplete: Bool
     }
 
-    private struct SessionFileMetadata: Equatable {
+    fileprivate struct SessionFileMetadata: Equatable, Sendable {
         let fileIdentity: String
         let mtimeUnixMs: Int64
         let size: Int64

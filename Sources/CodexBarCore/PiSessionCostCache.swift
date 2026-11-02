@@ -38,7 +38,10 @@ enum PiSessionCostCacheIO {
         header.timeZoneIdentifier = calendar.timeZone.identifier
         header.files = [:]
         _ = try? CostUsageClaudeFragments.shared.save(
-            header: header, values: cache.files, at: url, shardByFile: true,
+            header: header,
+            values: cache.files,
+            at: url,
+            shardByFile: true,
             unchangedHeader: { previous, current in
                 var previous = previous
                 previous.lastScanUnixMs = current.lastScanUnixMs

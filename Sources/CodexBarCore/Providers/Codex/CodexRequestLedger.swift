@@ -99,7 +99,7 @@ public struct CodexRequestLedger: Codable, Sendable {
 
     /// Full native parsing is read-only; the opt-in observer sees owned replays before native collapse.
     public static func load(startUnixMs: Int64, endUnixMs: Int64) async throws -> Self {
-        try await CostUsageScanExecutor.run { checkCancellation in
+        try await CostUsageScanExecutor.run(provider: .codex) { checkCancellation in
             try Self.load(
                 startUnixMs: startUnixMs,
                 endUnixMs: endUnixMs,

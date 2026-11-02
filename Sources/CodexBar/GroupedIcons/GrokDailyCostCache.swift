@@ -11,6 +11,8 @@ final class GrokDailyCostCache {
     @ObservationIgnored private var lastAttempt: Date?
     @ObservationIgnored private var day: Date?
     @ObservationIgnored private var inputSignature: String?
+    @ObservationIgnored private var mirrorSignature: PiSessionCostScanner.GrokSourceSignature?
+    @ObservationIgnored private var mirrorReport: CostUsageDailyReport?
     @ObservationIgnored private var didLogReadError = false
 
     func refreshIfNeeded(now: Date) {
@@ -27,22 +29,34 @@ final class GrokDailyCostCache {
             || self.lastAttempt.map({ !calendar.isDate($0, inSameDayAs: now) }) == true else { return }
         self.lastAttempt = now
         let signature = self.inputSignature
+        let previousMirrorSignature = self.mirrorSignature
+        let previousMirrorReport = self.mirrorReport
         let home = GrokCredentialsStore.grokHomeURL()
         self.task = Task { [weak self] in
             let result: Result<Scan, Error>
             do {
-                let scan = try await CostUsageScanExecutor.run { _ in
+                let scan = try await CostUsageScanExecutor.run(provider: .grok) { _ in
                     defer { MemoryPressureRelief.releaseFreeMallocPages() }
                     return try autoreleasepool {
                         let since = calendar.date(byAdding: .day, value: -30, to: now) ?? now
-                        let mirrors = try PiSessionCostScanner.grokDailyReport(
-                            since: since, until: now, now: now, calendar: calendar)
-                        return try Self.scan(
+                        let mirrorSignature = try PiSessionCostScanner.grokSourceSignature(now: now, calendar: calendar)
+                        let mirrors: CostUsageDailyReport = if mirrorSignature == previousMirrorSignature,
+                                                               let previousMirrorReport
+                        {
+                            previousMirrorReport
+                        } else {
+                            try PiSessionCostScanner.grokDailyReport(
+                                since: since, until: now, now: now, calendar: calendar)
+                        }
+                        var scan = try Self.scan(
                             home: home,
                             now: now,
                             calendar: calendar,
                             previousSignature: signature,
                             mirrors: mirrors)
+                        scan.mirrorSignature = mirrorSignature
+                        scan.mirrorReport = mirrors
+                        return scan
                     }
                 }
                 result = .success(scan)
@@ -55,6 +69,8 @@ final class GrokDailyCostCache {
             switch result {
             case let .success(scan):
                 self.inputSignature = scan.signature
+                self.mirrorSignature = scan.mirrorSignature
+                self.mirrorReport = scan.mirrorReport
                 if let cost = scan.cost { self.today = cost }
             case .failure:
                 if !self.didLogReadError {
@@ -69,6 +85,8 @@ final class GrokDailyCostCache {
     struct Scan: Sendable {
         let signature: String
         let cost: GrokDayCost?
+        var mirrorSignature: PiSessionCostScanner.GrokSourceSignature?
+        var mirrorReport: CostUsageDailyReport?
     }
 
     nonisolated static func scan(

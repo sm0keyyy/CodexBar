@@ -54,6 +54,8 @@ struct PiSessionMemoryTests {
                 #expect(first.report.summary?.totalTokens == 480)
                 let artifact = PiSessionCostCacheIO.cacheFileURL(cacheRoot: env.cacheRoot)
                 let initialStamp = CostUsageClaudeFileStamp.read(at: artifact)
+                let signature = try PiSessionCostScanner.grokSourceSignature(
+                    now: day, calendar: options.calendar, options: options)
                 try PiSessionCostScanner.$sessionParseObserverForTesting.withValue(parsed) {
                     try CostUsageClaudeFragments.$observeEncodedBytesForTesting.withValue(encoded) {
                         try CostUsageClaudeCacheIO.$readForTesting.withValue(read) {
@@ -66,6 +68,9 @@ struct PiSessionMemoryTests {
                             #expect(CostUsageClaudeFileStamp.read(at: artifact) == initialStamp)
                             #expect(PiSessionCostCacheIO.load(cacheRoot: env.cacheRoot).lastScanUnixMs
                                 == Int64(day.addingTimeInterval(10).timeIntervalSince1970 * 1000))
+                            let unchangedSignature = try PiSessionCostScanner.grokSourceSignature(
+                                now: day, calendar: options.calendar, options: options)
+                            #expect(unchangedSignature == signature)
                             let handle = try FileHandle(forWritingTo: #require(files.first))
                             defer { try? handle.close() }
                             var appended = row
@@ -77,6 +82,9 @@ struct PiSessionMemoryTests {
                             #expect(changed.report.summary?.totalTokens == 495)
                             #expect(work.counts == [1, 1, 0, 1])
                             #expect(work.maximumEncodedBytes < 4096)
+                            let changedSignature = try PiSessionCostScanner.grokSourceSignature(
+                                now: day, calendar: options.calendar, options: options)
+                            #expect(changedSignature != signature)
                             let refreshed = try scan(12)
                             #expect(refreshed.report.data == changed.report.data)
                             #expect(work.counts == [1, 1, 0, 1])
