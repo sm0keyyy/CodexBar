@@ -37,7 +37,9 @@ extension StatusItemController {
         self.statusItem.length = NSStatusItem.variableLength
         let tiles = providers.map { self.groupedTile(provider: $0, button: button) }
         let now = Date()
-        let summary = self.groupedCostSummary(now: now)
+        let costInputs = self.groupedCostInputs(now: now)
+        let summary = GroupedDailyCost.summary(
+            inputs: costInputs, preferredCurrency: self.settings.preferredCurrencyCode)
         let overBudget = summary.isOverBudget(self.settings.menuBarGroupedDailyBudgetUSD)
         var lines = tiles.map { self.groupedQuotaDescription($0) } + summary.lines
         if self.settings.costUsageEnabled, self.settings.menuBarGroupedDailyBudgetUSD > 0 {
@@ -76,6 +78,10 @@ extension StatusItemController {
             overBudget: overBudget,
             for: button)
         button.toolTip = tooltip
+        if self.settings.isVerboseLoggingEnabled {
+            let readiness = costInputs.map { "\($0.name)=\($0.value.usd == nil ? 0 : 1)" }.joined(separator: " ")
+            self.menuLogger.verbose("[perf] grouped-cost-ready \(readiness)")
+        }
         self.lastAppliedMergedIconRenderSignature = signature
         self.noteIconPerfRender(skipped: false)
         return false
