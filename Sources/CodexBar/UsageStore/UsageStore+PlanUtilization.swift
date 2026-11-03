@@ -18,6 +18,7 @@ extension UsageStore {
     nonisolated static let claudeSwapPlanUtilizationAccountKeyPrefix = "__claude_swap__:"
 
     func supportsPlanUtilizationHistory(for provider: UsageProvider) -> Bool {
+        if self.isPaceSamplerActive { return true }
         let capability = ProviderDescriptorRegistry.descriptor(for: provider).history
         guard capability.supportsPlanUtilization else { return false }
         if capability.alwaysTracksPlanUtilization {
@@ -58,7 +59,9 @@ extension UsageStore {
     func planUtilizationHistorySelection(for provider: UsageProvider, readOnly: Bool = false)
         -> PlanUtilizationHistorySelection
     {
-        guard ProviderDescriptorRegistry.descriptor(for: provider).history.supportsPlanUtilization else {
+        guard ProviderDescriptorRegistry.descriptor(for: provider).history.supportsPlanUtilization
+            || self.isPaceSamplerActive
+        else {
             return .unavailable
         }
         // The persisted history has not been read yet. Return the in-memory
@@ -111,9 +114,10 @@ extension UsageStore {
         for provider: UsageProvider,
         account: ProviderTokenAccount) -> PlanUtilizationHistorySelection
     {
-        guard ProviderDescriptorRegistry.descriptor(for: provider).history.supportsPlanUtilization,
-              self.planUtilizationHistoryLoaded,
-              let accountKey = Self.planUtilizationAccountKey(provider: provider, account: account)
+        guard ProviderDescriptorRegistry.descriptor(for: provider).history.supportsPlanUtilization
+            || self.isPaceSamplerActive,
+            self.planUtilizationHistoryLoaded,
+            let accountKey = Self.planUtilizationAccountKey(provider: provider, account: account)
         else {
             return .unavailable
         }
@@ -131,9 +135,10 @@ extension UsageStore {
         for provider: UsageProvider,
         snapshotOverride snapshot: UsageSnapshot) -> PlanUtilizationHistorySelection
     {
-        guard ProviderDescriptorRegistry.descriptor(for: provider).history.supportsPlanUtilization,
-              self.planUtilizationHistoryLoaded,
-              let accountKey = Self.planUtilizationIdentityAccountKey(provider: provider, snapshot: snapshot)
+        guard ProviderDescriptorRegistry.descriptor(for: provider).history.supportsPlanUtilization
+            || self.isPaceSamplerActive,
+            self.planUtilizationHistoryLoaded,
+            let accountKey = Self.planUtilizationIdentityAccountKey(provider: provider, snapshot: snapshot)
         else {
             return .unavailable
         }
@@ -225,7 +230,9 @@ extension UsageStore {
         now: Date = Date())
         async
     {
-        guard ProviderDescriptorRegistry.descriptor(for: provider).history.supportsPlanUtilization else { return }
+        guard ProviderDescriptorRegistry.descriptor(for: provider).history.supportsPlanUtilization
+            || self.isPaceSamplerActive
+        else { return }
         let detectorSamples = self.planUtilizationSeriesSamples(
             provider: provider,
             snapshot: snapshot,
@@ -278,8 +285,13 @@ extension UsageStore {
             codexLimitResetOwnerKey: codexLimitResetOwnerKey,
             sessionRestoredNotificationPending: sessionRestoredNotificationPending)
         self.postLimitResetCelebrationsIfNeeded(context: detectorContext, samples: detectorSamples)
+        let paceSamples = self.paceSamplerSamples(
+            provider: provider,
+            snapshot: snapshot,
+            capturedAt: now,
+            excluding: samples)
 
-        guard !samples.isEmpty else { return }
+        guard !samples.isEmpty || !paceSamples.isEmpty else { return }
         guard self.shouldRecordPlanUtilizationHistory(for: provider) else { return }
         guard !self.shouldDeferClaudePlanUtilizationHistory(provider: provider) else { return }
 
@@ -331,10 +343,11 @@ extension UsageStore {
                     samples: &samplesToPersist)
                 self.sessionEquivalentBurnCache.removeValue(forKey: provider.instanceID)
             }
+            samplesToPersist += paceSamples
 
-            let updatedHistories = Self.updatedPlanUtilizationHistories(
-                existingHistories: histories,
-                samples: samplesToPersist) ?? histories
+            let updateHistories = self.isPaceSamplerActive
+                ? Self.updatedPaceSamplerHistories : Self.updatedPlanUtilizationHistories
+            let updatedHistories = updateHistories(histories, samplesToPersist) ?? histories
             if updatedHistories != originalHistories {
                 providerBuckets.setHistories(updatedHistories, for: accountKey)
             }
@@ -351,7 +364,7 @@ extension UsageStore {
 
     func shouldRecordPlanUtilizationHistory(for provider: UsageProvider) -> Bool {
         let capability = ProviderDescriptorRegistry.descriptor(for: provider).history
-        return capability.supportsPlanUtilization &&
+        return self.isPaceSamplerActive || capability.supportsPlanUtilization &&
             (capability.alwaysTracksPlanUtilization || self.settings.historicalTrackingEnabled)
     }
 
@@ -663,7 +676,7 @@ extension UsageStore {
         }
     }
 
-    private nonisolated static func planUtilizationHourBucket(for date: Date) -> Int64 {
+    nonisolated static func planUtilizationHourBucket(for date: Date) -> Int64 {
         Int64(floor(date.timeIntervalSince1970 / self.planUtilizationMinSampleIntervalSeconds))
     }
 
