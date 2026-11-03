@@ -31,6 +31,55 @@ final class PaceProviderTabRenderProofTests: XCTestCase {
         }
     }
 
+    func test_longestLocalizedCostStat() throws {
+        guard let path = ProcessInfo.processInfo.environment["CODEXBAR_PACE_PANEL_PROOF_DIR"] else {
+            throw XCTSkip("Set CODEXBAR_PACE_PANEL_PROOF_DIR for synthetic offscreen rendering")
+        }
+        let bundle = codexBarLocalizationResourceBundle()
+        let locales = bundle.localizations.filter { $0 != "Base" }
+        let captions = try locales.map { locale in
+            let url = try XCTUnwrap(bundle.url(
+                forResource: "Localizable", withExtension: "strings", subdirectory: "\(locale).lproj"))
+            let catalog = try XCTUnwrap(PropertyListSerialization.propertyList(
+                from: Data(contentsOf: url), format: nil) as? [String: String])
+            return try XCTUnwrap(catalog["pace_partly_unpriced"])
+        }
+        XCTAssertEqual(captions.count, 23)
+        let captionFont = NSFont.systemFont(ofSize: 10)
+        let caption = try XCTUnwrap(captions.max {
+            $0.size(withAttributes: [.font: captionFont]).width < $1.size(withAttributes: [.font: captionFont]).width
+        })
+        let amounts = locales.map {
+            99999.99.formatted(.currency(code: "USD").locale(Locale(identifier: $0)))
+        }
+        let amountFont = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .semibold)
+        let amount = try XCTUnwrap(amounts.max {
+            $0.size(withAttributes: [.font: amountFont]).width < $1.size(withAttributes: [.font: amountFont]).width
+        })
+        let view = HStack(alignment: .top, spacing: 10) {
+            PaceProviderCostStat(title: L("Today"), amount: amount, caption: nil)
+            PaceProviderCostStat(title: L("7 days"), amount: amount, caption: caption)
+            PaceProviderCostStat(title: L("pace_thirty_days"), amount: amount, caption: caption)
+        }
+        .padding(16)
+        .frame(width: 360)
+        .background(Color.white)
+        .environment(\.colorScheme, .light)
+        let hosting = NSHostingView(rootView: view)
+        hosting.frame = NSRect(x: 0, y: 0, width: 360, height: 120)
+        hosting.layoutSubtreeIfNeeded()
+        hosting.frame.size.height = ceil(hosting.fittingSize.height)
+        hosting.appearance = NSAppearance(named: .aqua)
+        hosting.layoutSubtreeIfNeeded()
+        let bitmap = try XCTUnwrap(hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds))
+        hosting.cacheDisplay(in: hosting.bounds, to: bitmap)
+        let data = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
+        let directory = URL(fileURLWithPath: path, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try data.write(to: directory.appendingPathComponent("grok-cost-localization.png"))
+        print("Pace localized cost proof: 23 catalogs, longest amount \(amount), caption \(caption), width 360 pt")
+    }
+
     private func populatedInput() throws -> PacePanelInput {
         var input = PaceProviderTabModelTests.fixture()
         input.calendar = .current
