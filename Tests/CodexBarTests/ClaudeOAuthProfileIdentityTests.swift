@@ -127,10 +127,18 @@ struct ClaudeOAuthProfileIdentityTests {
         var owners: [String] = []
         for (index, token) in ["before-renewal", "after-renewal"].enumerated() {
             _ = try await self.fetch(
-                includeAccountIdentity: includeAccountIdentity, cache: cache, token: token, profile: profile)
+                includeAccountIdentity: includeAccountIdentity,
+                cache: cache,
+                token: token,
+                refreshToken: "refresh-\(token)",
+                profile: profile)
             await cache.finishPendingForTesting()
             let snapshot = try await self.fetch(
-                includeAccountIdentity: includeAccountIdentity, cache: cache, token: token, profile: profile)
+                includeAccountIdentity: includeAccountIdentity,
+                cache: cache,
+                token: token,
+                refreshToken: "refresh-\(token)",
+                profile: profile)
             let usage = ClaudeOAuthFetchStrategy._snapshotForTesting(from: snapshot)
             try owners.append(#require(snapshot.oauthHistoryOwnerIdentifier))
             if index == 1 {
@@ -181,6 +189,7 @@ struct ClaudeOAuthProfileIdentityTests {
         includeAccountIdentity: Bool = true,
         cache: ClaudeOAuthDisplayProfileCache = ClaudeOAuthDisplayProfileCache(),
         token: String = "fixture-oauth-token",
+        refreshToken: String? = nil,
         profile: @escaping @Sendable (String) async throws -> OAuthProfileResponse) async throws -> ClaudeUsageSnapshot
     {
         let fetcher = ClaudeUsageFetcher(
@@ -191,7 +200,7 @@ struct ClaudeOAuthProfileIdentityTests {
         let credentials: @Sendable ([String: String], Bool, Bool) async throws -> ClaudeOAuthCredentials = { _, _, _ in
             ClaudeOAuthCredentials(
                 accessToken: token,
-                refreshToken: nil,
+                refreshToken: refreshToken,
                 expiresAt: Date(timeIntervalSinceNow: 3600),
                 scopes: ["user:profile"],
                 rateLimitTier: "claude_pro")
