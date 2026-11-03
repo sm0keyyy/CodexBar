@@ -201,7 +201,7 @@ private struct ProviderHistoryDocument: Codable, Sendable {
     let unscoped: [PlanUtilizationSeriesHistory]
     let accounts: [String: [PlanUtilizationSeriesHistory]]
     let sessionEquivalentWindowPairIdentities: [String: String]
-    let claudeOAuthFragmentMigrationVersion: Int
+    let claudeOAuthFragmentMigrationVersion: Int?
 }
 
 struct PlanUtilizationHistoryStore: Sendable {
@@ -280,7 +280,9 @@ struct PlanUtilizationHistoryStore: Sendable {
             unscoped: Self.sortedHistories(buckets.unscoped),
             accounts: Self.sortedAccounts(buckets.accounts),
             sessionEquivalentWindowPairIdentities: buckets.sessionEquivalentWindowPairIdentities,
-            claudeOAuthFragmentMigrationVersion: 1)
+            claudeOAuthFragmentMigrationVersion: buckets.accounts.keys.contains {
+                $0.hasPrefix("__claude_oauth__:")
+            } ? 1 : nil)
         let data = try encoder.encode(payload)
         if let existingData = try? Data(contentsOf: fileURL) {
             if existingData == data { return }
@@ -348,7 +350,9 @@ struct PlanUtilizationHistoryStore: Sendable {
             }
 
             var buckets = Self.decodeProvider(decoded)
-            if instanceID == .claude, decoded.claudeOAuthFragmentMigrationVersion == 0 {
+            if instanceID == .claude, (decoded.claudeOAuthFragmentMigrationVersion ?? 0) == 0,
+               buckets.accounts.keys.contains(where: { $0.hasPrefix("__claude_oauth__:") })
+            {
                 buckets.migrateClaudeOAuthFragments()
                 let encoder = JSONEncoder()
                 encoder.dateEncodingStrategy = .iso8601
@@ -418,7 +422,7 @@ extension ProviderHistoryDocument {
             [String: String].self,
             forKey: .sessionEquivalentWindowPairIdentities) ?? [:]
         self.claudeOAuthFragmentMigrationVersion = try container.decodeIfPresent(
-            Int.self, forKey: .claudeOAuthFragmentMigrationVersion) ?? 0
+            Int.self, forKey: .claudeOAuthFragmentMigrationVersion)
     }
 }
 
