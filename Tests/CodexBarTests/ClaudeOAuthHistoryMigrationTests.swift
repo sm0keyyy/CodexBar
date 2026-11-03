@@ -100,6 +100,32 @@ struct ClaudeOAuthHistoryMigrationTests {
         #expect(buckets == original)
     }
 
+    @Test(arguments: [false, true], [false, true])
+    func `async load does not merge known or quarantined scopes`(
+        quarantined: Bool, preferredIsKnown: Bool) async throws
+    {
+        let owner = String(repeating: "a", count: 64)
+        let known = try #require(UsageStore.claudeOAuthPlanUtilizationAccountKey(historyOwnerIdentifier: owner))
+        var keys = [self.key(1), self.key(2), self.key(3)]
+        keys[preferredIsKnown ? 2 : 1] = known
+        let original = PlanUtilizationHistoryBuckets(
+            preferredAccountKey: keys[2],
+            accounts: Dictionary(uniqueKeysWithValues: keys.enumerated().map { index, key in
+                (key, self.histories(first: Double(index * 2 + 1), last: Double(index * 2 + 2)))
+            }))
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = PlanUtilizationHistoryStore(directoryURL: directory)
+        store.save([.claude: original])
+        let file = directory.appendingPathComponent("claude.json")
+        var payload = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any])
+        payload.removeValue(forKey: "claudeOAuthFragmentMigrationVersion")
+        try JSONSerialization.data(withJSONObject: payload).write(to: file, options: .atomic)
+        let bindingKey = quarantined ? "unverified:\(known)" : owner
+        let loaded = await store.loadAsync(claudeOAuthBindings: [bindingKey: String(repeating: "b", count: 64)])
+        #expect(loaded[.claude] == original)
+    }
+
     @Test(arguments: [
         "overlap", "weekly reset", "gap", "cutover", "missing weekly", "session reset", "missing reset", "cadence",
     ])

@@ -3,9 +3,23 @@ import Foundation
 
 extension PlanUtilizationHistoryBuckets {
     /// Identityless legacy buckets can only join the contiguous tail selected at the credential cutover.
-    mutating func migrateClaudeOAuthFragments() {
+    mutating func migrateClaudeOAuthFragments(bindings: [String: String] = [:]) {
         let prefix = "__claude_oauth__:"
         guard let preferred = self.preferredAccountKey, preferred.hasPrefix(prefix) else { return }
+        let unverifiedPrefix = "unverified:"
+        let excluded = bindings.reduce(into: Set<String>()) { keys, binding in
+            if let key = UsageStore.claudeOAuthPlanUtilizationAccountKey(historyOwnerIdentifier: binding.key) {
+                keys.insert(key)
+            }
+            if let key = UsageStore.claudeOAuthPlanUtilizationAccountKey(historyOwnerIdentifier: binding.value) {
+                keys.insert(key)
+            }
+            if binding.key.hasPrefix(unverifiedPrefix) {
+                keys.insert(String(binding.key.dropFirst(unverifiedPrefix.count)))
+            }
+        }
+        // Existing ownership evidence outranks temporal similarity. Do not merge across a known account.
+        guard !excluded.contains(preferred) else { return }
         let cutover = self.accounts.filter { !$0.key.hasPrefix(prefix) }
             .values.flatMap(\.self).compactMap(\.latestCapturedAt).max() ?? .distantPast
         let fragments = self.accounts.compactMap { key, histories -> ClaudeOAuthHistoryFragment? in
@@ -16,7 +30,9 @@ extension PlanUtilizationHistoryBuckets {
         guard let selectedIndex = fragments.firstIndex(where: { $0.key == preferred }),
               selectedIndex == fragments.count - 1 else { return }
         var firstIndex = selectedIndex
-        while firstIndex > 0, fragments[firstIndex - 1].canPrecede(fragments[firstIndex]) {
+        while firstIndex > 0, !excluded.contains(fragments[firstIndex - 1].key),
+              fragments[firstIndex - 1].canPrecede(fragments[firstIndex])
+        {
             firstIndex -= 1
         }
         guard firstIndex < selectedIndex else { return }

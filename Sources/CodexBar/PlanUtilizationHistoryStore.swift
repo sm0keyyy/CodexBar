@@ -228,8 +228,10 @@ struct PlanUtilizationHistoryStore: Sendable {
     /// ~150 ms for mature two-year histories and must not run on the app
     /// startup main thread. The returned dictionary is safe to apply on the
     /// main actor once decoding completes.
-    func loadAsync() async -> [ProviderInstanceID: PlanUtilizationHistoryBuckets] {
-        await Task.detached(priority: .utility) { self.load() }.value
+    func loadAsync(claudeOAuthBindings: [String: String] = [:]) async
+        -> [ProviderInstanceID: PlanUtilizationHistoryBuckets]
+    {
+        await Task.detached(priority: .utility) { self.load(claudeOAuthBindings: claudeOAuthBindings) }.value
     }
 
     func save(
@@ -328,7 +330,7 @@ struct PlanUtilizationHistoryStore: Sendable {
             }
     }
 
-    func load() -> [ProviderInstanceID: PlanUtilizationHistoryBuckets] {
+    func load(claudeOAuthBindings: [String: String] = [:]) -> [ProviderInstanceID: PlanUtilizationHistoryBuckets] {
         guard let directoryURL = self.directoryURL,
               let fileURLs = try? FileManager.default.contentsOfDirectory(
                   at: directoryURL,
@@ -353,7 +355,7 @@ struct PlanUtilizationHistoryStore: Sendable {
             if instanceID == .claude, (decoded.claudeOAuthFragmentMigrationVersion ?? 0) == 0,
                buckets.accounts.keys.contains(where: { $0.hasPrefix("__claude_oauth__:") })
             {
-                buckets.migrateClaudeOAuthFragments()
+                buckets.migrateClaudeOAuthFragments(bindings: claudeOAuthBindings)
                 let encoder = JSONEncoder()
                 encoder.dateEncodingStrategy = .iso8601
                 encoder.outputFormatting = [.sortedKeys]

@@ -16,6 +16,7 @@ extension UsageStore {
             return
         }
         let historyStore = self.planUtilizationHistoryStore
+        let claudeOAuthBindings = Self.loadClaudeOAuthAccountUuidMap(from: self.settings.userDefaults)
         self.planUtilizationHistoryLoadTask = Task { @MainActor [weak self] in
             // In-memory starts empty; mutation paths and sync menu accessors gate on
             // `planUtilizationHistoryLoaded` until the background decode publishes once.
@@ -27,7 +28,7 @@ extension UsageStore {
                 }
                 guard shouldLoad, !Task.isCancelled else { return }
             }
-            let loaded = await historyStore.loadAsync()
+            let loaded = await historyStore.loadAsync(claudeOAuthBindings: claudeOAuthBindings)
             guard !Task.isCancelled, let self, !self.planUtilizationHistoryLoaded else { return }
             self.planUtilizationHistory = loaded
             self.planUtilizationHistoryLoaded = true
