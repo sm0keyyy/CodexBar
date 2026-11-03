@@ -751,6 +751,9 @@ extension UsageStore {
             claudeOAuthHistoryOwnerIdentifier: isClaudeOAuthSample
                 ? result.claudeOAuthHistoryOwnerIdentifier
                 : nil,
+            claudeOAuthProfileIdentity: isClaudeOAuthSample
+                ? Self.legacyClaudePlanUtilizationEmailAccountKey(snapshot: rawScoped)
+                : nil,
             claudeOAuthKeychainCredentialMismatch: isClaudeOAuthSample
                 && result.claudeOAuthKeychainCredentialMismatch,
             claudeOAuthKeychainCredentialAbsent: isClaudeOAuthSample
