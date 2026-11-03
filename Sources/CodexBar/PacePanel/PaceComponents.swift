@@ -393,7 +393,7 @@ struct PaceFooter: View {
         Button { self.onAction(action) } label: {
             HStack(spacing: 3) {
                 Text(title).lineLimit(1).fixedSize()
-                if let shortcut { Text(shortcut).foregroundStyle(.tertiary).fixedSize() }
+                if let shortcut { Text(shortcut).foregroundStyle(.tertiary).lineLimit(1).fixedSize() }
             }
             .font(.system(size: 12))
             .padding(.horizontal, 6)

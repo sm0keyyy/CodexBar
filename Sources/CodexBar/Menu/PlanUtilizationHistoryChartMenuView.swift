@@ -45,7 +45,7 @@ struct PlanUtilizationHistoryChartMenuView: View {
         let windowInterval: TimeInterval
     }
 
-    private struct Point: Identifiable {
+    struct Point: Identifiable {
         let id: Date
         let index: Int
         let date: Date
@@ -53,7 +53,7 @@ struct PlanUtilizationHistoryChartMenuView: View {
         let isObserved: Bool
     }
 
-    private struct Model {
+    struct Model {
         let points: [Point]
         let axisIndexes: [Double]
         let xDomain: ClosedRange<Double>?
@@ -293,7 +293,7 @@ struct PlanUtilizationHistoryChartMenuView: View {
         }
     }
 
-    private nonisolated static func makeModel(
+    nonisolated static func makeModel(
         history: PlanUtilizationSeriesHistory?,
         provider: UsageProvider,
         referenceDate: Date) -> Model
