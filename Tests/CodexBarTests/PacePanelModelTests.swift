@@ -42,7 +42,7 @@ struct PacePanelModelTests {
     @Test func `T19 today amounts and normalized pace points match the tooltip fixture`() throws {
         let model = PacePanelModel.make(self.fixture)
         #expect(model.today.displayText == "$70.61")
-        #expect(model.today.lines == ["Today: $70.61", "Codex $37.54 · Claude $25.11 · Grok $7.96"])
+        #expect(model.today.lines == ["Today: $70.61 · Codex $37.54 · Claude $25.11 · Grok $7.96"])
         #expect(model.providers.map(\.today) == [.exact(37.54), .exact(25.11), .exact(7.96)])
         #expect(model.providers.map(\.provider) == [.codex, .claude, .grok])
         #expect(model.weeklySeries.map(\.provider) == [.codex, .claude, .grok])
