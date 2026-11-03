@@ -6,6 +6,20 @@ struct PaceProviderTabContext {
     let menu: MenuDescriptor
     let accountCount: Int
     let error: String?
+
+    @MainActor
+    static func accountCount(
+        menu: MenuDescriptor,
+        managed: @autoclosure () -> Int,
+        tokens: @autoclosure () -> Int) -> Int
+    {
+        for section in menu.sections {
+            for entry in section.entries {
+                if case .action(_, .addCodexAccount) = entry { return managed() }
+            }
+        }
+        return tokens()
+    }
 }
 
 struct PaceProviderTabView: View {
@@ -203,6 +217,7 @@ struct PaceProviderTabView: View {
             HStack {
                 Text(L("pace_thirty_day_cost_chart"))
                 Spacer(minLength: 0)
+                // Provider-specific by design: Grok prices native and mirror usage at official xAI tariffs.
                 if self.block.provider == .grok { Text(L("pace_official_xai_rates")) }
             }
             .font(.system(size: 9)).foregroundStyle(.secondary)

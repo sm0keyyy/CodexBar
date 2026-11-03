@@ -45,6 +45,7 @@ struct WindowPace: Equatable, Sendable {
     static func durationMinutes(window: RateWindow, provider: UsageProvider, now: Date) -> Int? {
         let resolved = ProviderDescriptorRegistry.descriptor(for: provider).pace.resolvedResetWindowForPace(window)
         if let minutes = resolved.windowMinutes, minutes > 0 { return minutes }
+        // Provider-specific by design: C2 fixes an untyped Grok Weekly cycle at 10,080 minutes.
         if provider == .grok, GrokProviderDescriptor.displayLabel(window: window, now: now) == "Weekly" {
             return 10080
         }

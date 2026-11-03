@@ -13,6 +13,14 @@ struct PaceProviderTabModelTests {
         #expect(model.actions.map(\.title) == ["Usage Dashboard"])
     }
 
+    @Test func `account inventory follows the provider-owned menu capability`() {
+        let managed = MenuDescriptor(sections: [.init(entries: [.action("Add", .addCodexAccount)])])
+        let tokens = MenuDescriptor(sections: [.init(entries: [.action("Switch", .switchAccount(.claude))])])
+        #expect(PaceProviderTabContext.accountCount(menu: managed, managed: 3, tokens: 1) == 3)
+        #expect(PaceProviderTabContext.accountCount(menu: tokens, managed: 3, tokens: 1) == 1)
+        #expect(PaceProviderTabContext.accountCount(menu: .init(sections: []), managed: 3, tokens: 0) == 0)
+    }
+
     @Test func `T22b error restores login and Copy Error without removed rows`() throws {
         let input = Self.fixture()
         let model = try self.model(

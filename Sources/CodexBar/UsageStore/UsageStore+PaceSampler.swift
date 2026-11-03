@@ -33,25 +33,17 @@ extension UsageStore {
                     resetsAt: window.resetsAt)))
         }
 
-        if provider == .grok {
-            let name: PlanUtilizationSeriesName = switch GrokProviderDescriptor.displayLabel(
-                window: snapshot.primary, now: capturedAt)
-            {
-            case "Weekly": .weekly
-            case "Monthly": .monthly
-            default: "credits"
-            }
-            if let primary = snapshot.primary {
-                append(primary, name: name, minutes: WindowPace.durationMinutes(
-                    window: primary, provider: provider, now: capturedAt))
-            }
-        } else {
-            append(snapshot.primary, name: self.paceSamplerSeries(
-                provider: provider, window: snapshot.primary, fallback: .session))
+        func appendStandard(_ window: RateWindow?, id: String) {
+            guard let window else { return }
+            append(
+                window,
+                name: PaceHistorySeries.name(provider: provider, windowID: id, window: window, now: capturedAt),
+                minutes: PaceHistorySeries.sampleDurationMinutes(
+                    window: window, windowID: id, provider: provider, now: capturedAt))
         }
-        append(snapshot.secondary, name: self.paceSamplerSeries(
-            provider: provider, window: snapshot.secondary, fallback: .weekly))
-        append(snapshot.tertiary, name: provider == .opencodego ? .monthly : .opus)
+        appendStandard(snapshot.primary, id: "primary")
+        appendStandard(snapshot.secondary, id: "secondary")
+        appendStandard(snapshot.tertiary, id: "tertiary")
         for extra in snapshot.extraRateWindows ?? [] where extra.usageKnown {
             append(extra.window, name: PlanUtilizationSeriesName(rawValue: "extra:\(extra.id)"))
         }
@@ -85,16 +77,5 @@ extension UsageStore {
                 name: history.name, windowMinutes: history.windowMinutes, entries: entries)
         }
         return histories == existingHistories ? nil : histories
-    }
-
-    private func paceSamplerSeries(
-        provider: UsageProvider,
-        window: RateWindow?,
-        fallback: PlanUtilizationSeriesName) -> PlanUtilizationSeriesName
-    {
-        if provider == .claude || provider == .opencodego { return fallback }
-        guard let minutes = window?.windowMinutes, minutes > 0 else { return fallback }
-        if minutes == ProviderPaceCapability.monthlyWindowSentinelMinutes { return .monthly }
-        return minutes <= 1440 ? .session : .weekly
     }
 }

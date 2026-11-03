@@ -195,6 +195,26 @@ struct PacePanelModelTests {
             providers: [], lastSelectedWasOverview: false, selectedProvider: nil) == .overview)
     }
 
+    @Test func `history series follow descriptor slot semantics before duration fallback`() {
+        let session = self.window(used: 6, minutes: 300, remainingMinutes: 228)
+        let weekly = self.window(used: 42, minutes: 10080, remainingMinutes: 2640)
+        let monthly = self.window(used: 4, minutes: 43200, remainingMinutes: 40000)
+        for (provider, id, window, expected) in [
+            (UsageProvider.claude, "primary", weekly, PlanUtilizationSeriesName.session),
+            (.claude, "secondary", session, .weekly),
+            (.claude, "tertiary", weekly, .opus),
+            (.opencodego, "primary", session, .session),
+            (.opencodego, "secondary", weekly, .weekly),
+            (.opencodego, "tertiary", monthly, .monthly),
+            (.codex, "secondary", weekly, .weekly),
+            (.factory, "primary", monthly, .monthly),
+            (.cursor, "extra-fixture", weekly, "extra:extra-fixture"),
+        ] {
+            #expect(PaceHistorySeries.name(
+                provider: provider, windowID: id, window: window, now: self.now) == expected)
+        }
+    }
+
     @Test func `T21 model strings and every English Pace value exclude the forbidden product name`() throws {
         let forbidden = "Code" + "Burn"
         let modelStrings = self.strings(in: PacePanelModel.make(self.fixture))

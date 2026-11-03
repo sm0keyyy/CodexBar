@@ -164,29 +164,9 @@ struct PacePanelModel: Equatable {
                 countdown: entry.window.resetsAt
                     .map { UsageFormatter.resetCountdownDuration(from: $0, now: input.now) },
                 role: role,
-                series: self.seriesName(provider: provider, id: entry.id, duration: duration, label: entry.label))
+                series: PaceHistorySeries.name(
+                    provider: provider, windowID: entry.id, window: entry.window, now: input.now))
         }
-    }
-
-    private static func seriesName(
-        provider: UsageProvider, id: String, duration: Int?, label: String) -> PlanUtilizationSeriesName
-    {
-        switch id {
-        case "primary", "secondary", "tertiary": break
-        default: return .init(rawValue: "extra:\(id)")
-        }
-        if provider == .claude {
-            return id == "primary" ? .session : (id == "secondary" ? .weekly : .opus)
-        }
-        if provider == .opencodego {
-            return id == "primary" ? .session : (id == "secondary" ? .weekly : .monthly)
-        }
-        if provider == .grok, id == "primary" {
-            return label == "Weekly" ? .weekly : (label == "Monthly" ? .monthly : "credits")
-        }
-        if id == "tertiary" { return .opus }
-        if duration == ProviderPaceCapability.monthlyWindowSentinelMinutes { return .monthly }
-        return duration.map { $0 <= 1440 ? .session : .weekly } ?? (id == "primary" ? .session : .weekly)
     }
 
     private static func dayStacks(_ input: PacePanelInput) -> [PaceDayStack] {

@@ -62,11 +62,14 @@ extension StatusItemController {
             lastSelectedWasOverview: self.settings.mergedMenuLastSelectedWasOverview,
             selectedProvider: self.settings.selectedMenuProvider?.firstPartyProvider)
         let context = selection.provider.map { provider in
-            PaceProviderTabContext(
+            let menu = self.makeMenuDescriptor(provider: provider, includeContextualActions: true)
+            return PaceProviderTabContext(
                 card: self.store.menuCardModel(for: provider),
-                menu: self.makeMenuDescriptor(provider: provider, includeContextualActions: true),
-                accountCount: provider == .codex ? self.settings.codexVisibleAccounts.count
-                    : self.settings.tokenAccounts(for: provider).count,
+                menu: menu,
+                accountCount: PaceProviderTabContext.accountCount(
+                    menu: menu,
+                    managed: self.settings.codexVisibleAccounts.count,
+                    tokens: self.settings.tokenAccounts(for: provider).count),
                 error: self.store.userFacingError(for: provider))
         }
         return AnyView(PacePanelRootView(
