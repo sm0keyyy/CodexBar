@@ -248,38 +248,16 @@ extension UsageStore {
             : detectorSamples
         var effectiveOwner = claudeOAuthHistoryOwnerIdentifier
         if provider == .claude, isClaudeOAuthSample, let owner = claudeOAuthHistoryOwnerIdentifier {
-            if let profileIdentity = claudeOAuthProfileIdentity,
-               Self.claudeOAuthPlanUtilizationAccountKey(historyOwnerIdentifier: profileIdentity) != nil
-            {
-                // The email came from the profile fetched with this usage credential, not Claude Code's active login.
-                // Bind the old credential scope so its samples move once, without retaining either token or email.
-                var bindings = Self.loadClaudeOAuthAccountUuidMap(from: self.settings.userDefaults)
-                if bindings[owner] != profileIdentity || bindings["profile:\(owner)"] != profileIdentity {
-                    bindings[owner] = profileIdentity
-                    bindings["profile:\(owner)"] = profileIdentity
-                    self.persistClaudeOAuthAccountUuidMap(bindings)
-                }
-                effectiveOwner = profileIdentity
-            } else if let profileIdentity = Self.loadClaudeOAuthAccountUuidMap(
-                from: self.settings.userDefaults)["profile:\(owner)"]
-            {
-                effectiveOwner = profileIdentity
-            } else if Self.loadClaudeOAuthAccountUuidMap(from: self.settings.userDefaults).keys.contains(where: {
-                $0.hasPrefix("profile:")
-            }) {
-                // A renewed credential's optional profile can still be pending. Keep the established graph
-                // selected instead of creating another token bucket before its real account is known.
-                effectiveOwner = nil
-            } else {
-                effectiveOwner = self.resolvedClaudeOAuthHistoryOwner(evidence: ClaudeOAuthHistoryEvidence(
+            effectiveOwner = self.resolvedClaudeOAuthHistoryOwner(
+                evidence: ClaudeOAuthHistoryEvidence(
                     owner: owner,
                     persistentRefHash: claudeOAuthPersistentRefHash,
                     keychainCredentialMismatch: claudeOAuthKeychainCredentialMismatch,
                     keychainCredentialAbsent: claudeOAuthKeychainCredentialAbsent,
                     keychainCredentialUnavailable: claudeOAuthKeychainCredentialUnavailable,
                     activeAccountObservation: claudeOAuthActiveAccountObservation,
-                    observedAt: now))
-            }
+                    observedAt: now),
+                profileIdentity: claudeOAuthProfileIdentity)
             if let identity = effectiveOwner {
                 let bindings = Self.loadClaudeOAuthAccountUuidMap(from: self.settings.userDefaults)
                 effectiveOwner = bindings[Self.claudeOAuthAccountDestinationPrefix + identity] ?? identity
@@ -1043,6 +1021,32 @@ extension UsageStore {
         candidates[owner] = ClaudeOAuthAccountBindingCandidate(identity: identity, observedAt: observedAt)
         self.persistClaudeOAuthAccountBindingCandidateMap(candidates)
         return false
+    }
+
+    private func resolvedClaudeOAuthHistoryOwner(
+        evidence: ClaudeOAuthHistoryEvidence,
+        profileIdentity: String?) -> String?
+    {
+        guard Self.claudeOAuthPlanUtilizationAccountKey(historyOwnerIdentifier: evidence.owner) != nil
+        else { return nil }
+        var bindings = Self.loadClaudeOAuthAccountUuidMap(from: self.settings.userDefaults)
+        if let profileIdentity,
+           Self.claudeOAuthPlanUtilizationAccountKey(historyOwnerIdentifier: profileIdentity) != nil
+        {
+            // This identity came from the profile fetched with this usage credential, not the active CLI login.
+            // Bind the old credential scope once without retaining the token or email.
+            if bindings[evidence.owner] != profileIdentity || bindings["profile:\(evidence.owner)"] != profileIdentity {
+                bindings[evidence.owner] = profileIdentity
+                bindings["profile:\(evidence.owner)"] = profileIdentity
+                self.persistClaudeOAuthAccountUuidMap(bindings)
+            }
+            return profileIdentity
+        }
+        if let profileIdentity = bindings["profile:\(evidence.owner)"] { return profileIdentity }
+        // A renewed credential's optional profile can still be pending. Do not create another token bucket
+        // before its real account is known.
+        guard !bindings.keys.contains(where: { $0.hasPrefix("profile:") }) else { return nil }
+        return self.resolvedClaudeOAuthHistoryOwner(evidence: evidence)
     }
 
     private func resolvedClaudeOAuthHistoryOwner(evidence: ClaudeOAuthHistoryEvidence) -> String? {

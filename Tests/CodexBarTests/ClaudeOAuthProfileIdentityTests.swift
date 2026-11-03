@@ -158,7 +158,7 @@ struct ClaudeOAuthProfileIdentityTests {
         #expect(buckets.histories(for: buckets.preferredAccountKey).first?.entries.count == 2)
         let encoded = try JSONEncoder().encode(UsageStore.loadClaudeOAuthAccountUuidMap(
             from: store.settings.userDefaults))
-        let persisted = String(decoding: encoded, as: UTF8.self)
+        let persisted = try #require(String(data: encoded, encoding: .utf8))
         #expect(!persisted.contains("before-renewal"))
         #expect(!persisted.contains("after-renewal"))
         #expect(!persisted.contains("same-account@example.com"))
@@ -166,7 +166,8 @@ struct ClaudeOAuthProfileIdentityTests {
             provider: .claude,
             snapshot: UsageSnapshot(
                 primary: RateWindow(usedPercent: 20, windowMinutes: 300, resetsAt: nil, resetDescription: nil),
-                secondary: nil, updatedAt: Date()),
+                secondary: nil,
+                updatedAt: Date()),
             claudeOAuthHistoryOwnerIdentifier: owners[1],
             claudeOAuthKeychainCredentialUnavailable: true,
             isClaudeOAuthSample: true,
