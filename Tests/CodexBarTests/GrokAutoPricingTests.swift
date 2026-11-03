@@ -29,8 +29,14 @@ struct GrokAutoPricingTests {
         {"msg":"shell.turn.inference_done","sid":"s","ts":"2026-11-01T18:00:00Z",\
         "ctx":{"prompt_tokens":3500,"cached_prompt_tokens":2000,"completion_tokens":100}}
         """
-        let cost = GrokSessionCost.today(
-            unifiedLog: log, sessions: [], now: now, calendar: Calendar(identifier: .gregorian), pricing: pricing)
+        let daily = GrokSessionCost.daily(
+            unifiedLog: log,
+            sessions: [],
+            now: now,
+            calendar: Calendar(identifier: .gregorian),
+            days: 1,
+            pricing: pricing)
+        let cost = try #require(daily.values.first)
         #expect(cost.usd == 0.0069)
         #expect(cost.unpricedModels.isEmpty)
     }
@@ -74,8 +80,14 @@ struct GrokAutoPricingTests {
         {"msg":"shell.turn.inference_done","sid":"s","ts":"2026-11-01T18:00:00Z",\
         "ctx":{"prompt_tokens":100,"completion_tokens":10}}
         """
-        let cost = GrokSessionCost.today(
-            unifiedLog: log, sessions: [], now: now, calendar: Calendar(identifier: .gregorian), pricing: pricing)
+        let daily = GrokSessionCost.daily(
+            unifiedLog: log,
+            sessions: [],
+            now: now,
+            calendar: Calendar(identifier: .gregorian),
+            days: 1,
+            pricing: pricing)
+        let cost = try #require(daily.values.first)
         #expect(cost.unpricedModels == ["grok-test-unknown"])
         #expect(cost.requestCount == 1)
     }
