@@ -1,19 +1,19 @@
 ---
-summary: "Grouped provider pills, combined daily cost, and the fork release drill."
+summary: "Grouped provider pills, the Pace panel and sampler, daily cost, and the fork release drill."
 read_when:
   - Syncing or installing the grouped provider icons fork
 ---
 
 # Grouped provider icons
 
-Base: upstream `v0.83.0` (`348e2fa8d`). Branch: `fork/grouped-provider-icons`.
-The branch stays separate from fork `main` until the operator authorizes a merge.
+Base: upstream `v0.83.0` (`348e2fa8d`). Pace branch: `fork/pace`, after `fork/next` at `679229263`.
+The Pace branch stays separate from `fork/next` and `main` until the operator authorizes a merge.
 Push only to `origin` (`sm0keyyy/CodexBar`). Do not open an upstream PR without authorization.
 
 Enable **Merge icons**, then **Show every provider**, in Settings > Menu Bar.
 The new setting defaults to off. Grouping needs at least two enabled first-party providers.
 It shows the first six in menu order, independent of the Overview subset.
-Plugins do not supply tiles. A click opens the unchanged merged menu and provider switcher.
+Plugins do not supply tiles. In Pace mode, a click opens the Pace panel instead of the merged menu.
 Grouping overrides the stored icon style, stacked rows, layout, and icon source without changing their values.
 
 Every visible provider uses the same 24 × 10-point rounded pill on a 24 × 18-point canvas.
@@ -25,7 +25,8 @@ The session fill derives from that color: lighter and less saturated when feasib
 Tests require absolute CIELAB lightness separation of at least 20 and CIEDE2000 distance of at least 15 for every palette color.
 They check Aqua and Dark Aqua appearances and require both fill-to-track CIEDE2000 distances to be at least 15.
 Stale, refreshing, highlighted, inactive-display, and quota-warning states never replace or fade either fill.
-Stale/loading states use a dashed outline; warnings color that outline amber/red and flash its stroke, not the usage pixels.
+Stale and refresh-with-data states use a dashed outline. No data uses a solid outline without a fill or tick.
+Warnings color the outline amber or red and flash its stroke, not the usage pixels.
 Every pill remains non-template and its interior pixels remain opaque, including on inactive displays.
 The 111-provider palette run checks both appearances (222 measurements).
 Its minimum absolute ΔL* is 20.9828, minimum fill ΔE2000 is 23.0995, and minimum fill-to-track ΔE2000 is 21.0304.
@@ -39,9 +40,140 @@ The grey-state defect came from the grouped controller selecting a template mask
 That mask used one fill for both halves; the compositor also multiplied stale alpha by 0.45.
 State regression tests check both appearances, final composition, full alpha, and Claude's rendered orange hue/saturation.
 The real-status-bar proof also retained orange at 95% session / 62% weekly in ready, stale, refreshing,
-highlighted, and inactive/contrast states. Cold loading showed the colored dashed outline without invented usage.
+highlighted, and inactive/contrast states. The pre-Pace cold-loading proof showed a colored dashed outline without invented usage.
 It ran in a temporary accessory app hosting the isolated test bundle; unbundled SwiftPM helpers cannot reliably register a status item.
 The synthetic status items were removed after capture.
+
+## Pace panel
+
+`PaceMode.isActive(settings:store:)` is the shared predicate for the panel, pill, and sampler.
+It needs Merge icons, Show every provider, and at least 2 enabled first-party providers.
+Outside Pace mode, the existing native menus and history gates stay unchanged.
+The panel replaces hosted submenus in grouped mode. Plugin tabs, fleet stacks, Codex workspace rows, and OpenAI web items remain outside its scope.
+The panel shows the selected provider account. Settings controls account selection.
+
+### Host and glass
+
+The 360 pt panel uses a borderless, non-activating `NSPanel` at `.popUpMenu` level.
+It can become key, but never becomes the main window.
+The panel starts 4 pt below the status item and stays at least 8 pt inside the horizontal and bottom screen edges.
+Tall content scrolls. A click with either mouse button toggles the panel and retains the item's highlight while open.
+Open calls `store.noteMenuOpened()`. Pace mode never builds the merged `NSMenu`.
+
+The panel closes on:
+
+- Esc or a second click on the status item.
+- A click outside the panel or loss of key status.
+- A Space change, screen change, or sleep.
+- An action that opens a window or URL.
+
+Refresh leaves the panel open. Configured `ProviderSwitcherShortcuts` select tabs or move between tabs.
+Command-R refreshes, Command-comma opens Settings, and Command-Q quits.
+Native focus traversal serves Tab, Shift-Tab, Return, and Space.
+The last selected tab uses the existing merged-switcher settings.
+The Overview chart starts on Weekly when the panel opens.
+
+`PaceGlassView` uses `.popover`, `.behindWindow`, and `.active`.
+Its tint is black at 0.40 alpha in dark appearance and white at 0.50 alpha in light appearance.
+It has a 12 pt corner radius, a 0.5 pt white border at 0.14 alpha, and a system shadow.
+Reduce Transparency uses an opaque window-background tint. The open panel observes `NSApp.effectiveAppearance`.
+The panel uses AppKit APIs, not FineTune source code.
+
+While open, store observation rebuilds content and a 60 s timer updates countdowns.
+Close removes event monitors, observers, and the timer, and releases the panel and `NSHostingView`.
+The host remains attached to the status button without resident panel content.
+Verbose `menuLogger` events are `[perf] pace-panel open latency_ms=<n>` and `[perf] pace-panel close`.
+If key focus fails, the host logs `pace-panel key focus unavailable` once. Mouse paths remain available.
+The operator must check real key focus and VoiceOver. Injected host tests do not prove those paths on the installed app.
+
+### Overview and provider tabs
+
+The Overview has tabs in grouped-provider order and these sections:
+
+- A shared Session/Weekly chart with remaining percent against the fraction of the window elapsed.
+- Timeline bars with reset countdowns, ideal ticks, and pace text.
+- Today's total and each provider's amount, from the same `GroupedDailyCost` inputs as the tooltip.
+- A 7-day cost chart with daily stacks per provider.
+- Refresh, Settings, About, and Quit actions.
+
+Provider tabs share one template, including Grok:
+
+- The header shows the provider's plan, account, update time, and pace summary.
+- Plan Usage keeps separate burndowns for multiple windows, or one burndown and a stat row for a single window.
+- History chips select recorded windows. The history chart shows used percent through per-period peaks.
+- Cost shows Today, 7 days, 30 days, a 30-day chart, and the current weekly-window cost where available.
+- The model table shows the top 3 priced models, then `all other models`. Unknown prices stay `unpriced`, never a false zero.
+- Credit rows, provider cost rows, and filtered `MenuDescriptor` actions retain the existing provider data.
+
+The panel omits Status Page, Changelog, Share Usage Snapshot, Buy Credits, and agent sessions.
+It also omits account actions for a provider with at most 1 account and no error.
+Errors restore recovery actions, including login and Copy Error.
+Charts use SwiftUI paths, not Swift Charts. Burndowns connect captured samples only, without an invented start point.
+The panel takes fill and track colors from `GroupedProviderIconComposer`.
+Timeline rows and charts expose spoken summaries, and tabs expose selection.
+New strings use `pace_` localization keys in all 23 catalogs.
+The operator chose real translations instead of the build plan's English-copy default.
+
+### Pill, pace, and tooltip
+
+The fill follows `usageBarsShowUsed`. Each measured lane gets a 1 pt ideal tick in the button's `labelColor`.
+The ideal is `100 * fractionElapsed` in used mode and `100 * (1 - fractionElapsed)` in remaining mode.
+Reserve is remaining percent minus ideal remaining percent.
+Text rounds half away from zero, as `ahead +17%` or `behind −9%`. Rounded zero reads `ahead +0%`.
+Durations up to 1,440 minutes use the session class. Longer durations use the weekly class and weekly warning thresholds.
+A Grok window with a `Weekly` label and no duration uses 10,080 minutes.
+A missing reset, unresolved duration, synthetic placeholder, or time outside the window gives no tick or pace text.
+
+|State|Fill and tick|Outline|
+|---|---|---|
+|Normal|Usage fill and ideal tick|0.5 pt solid|
+|Refresh with data or stale|Full-opacity fill and tick|0.5 pt dashed|
+|Quota warning|Full-opacity fill and tick|1 pt amber or red, with the existing warning flash|
+|No data|No usage fill or tick|0.5 pt solid|
+|Over budget|Same fill and tick, orange cost text|Unchanged|
+|High contrast|Text only, no tick|None|
+
+The tick center is `0.5 + 23 * tickPercent / 100` pt.
+At 1×, the compositor floors the column and clamps it to 1...22.
+At 2×, it rounds the center and draws 2 columns, clamped to 1...46.
+One one-shot timer targets the next device-pixel move, with 10% tolerance. No tick means no tick timer.
+The render signature includes tick columns and the fill mode. The pill has no animation or per-minute timer.
+The compositor removes the outer image inset before the first pill. The cost slot keeps fixed width and position.
+During reload, the slot retains the last complete total of the same local day at 0.55 alpha.
+The panel reads that same `GroupedTooltipOwner.costSlot`, not a second retention cache.
+
+Tooltip lines name only the windows that the pill draws, with percent, pace, and reset countdown.
+The Today line has exact total and provider amounts. Budget, unpriced, and overflow lines remain.
+The AppKit tooltip-owner hover path remains unverified on a real status item.
+The approved fallback assigns `button.toolTip` on render and mouse entry, then every 60 s only while hovered.
+Mouse exit removes that hover timer. This timer does not redraw the pill.
+
+### Unified usage sampler
+
+While Pace mode is active, successful refreshes record measured windows without the history opt-in or provider history allowlist.
+Outside Pace mode, the original capability and opt-in rules still apply.
+The sampler skips synthetic or nonfinite values, unknown extra windows, and windows without positive durations.
+It excludes samples that already exist with the same series name and canonical duration.
+
+|Window|Series|Duration|
+|---|---|---|
+|Existing Codex and Claude windows|Existing names|Existing duration rules|
+|Grok primary, Weekly label|`weekly`|Resolved duration, or the 10,080-minute fallback|
+|Grok primary, Monthly label|`monthly`|Measured duration|
+|Grok primary, no recognized label|`credits`|Measured duration|
+|Other measured primary and secondary windows|Session or weekly class, with existing provider-specific names|Measured duration|
+|Known extra window|`extra:<id>`|Measured duration|
+
+Durations stay raw outside the existing ±10-minute canonical snap.
+Limit-reset detection sees only its original samples.
+The history path creates Pace samples after the detector call and appends them after generic session-equivalent reconciliation.
+This order preserves Grok history across cadence changes and keeps extra series out of reset detection.
+Only Pace mode selects `updatedPaceSamplerHistories`.
+The updater retains the latest reset-segment peak per hour bucket and coalesces existing split-hour entries.
+The bounds remain 1 entry per series per UTC hour bucket and at most 17,520 entries per series.
+The sampler keeps the current per-provider JSON format under `~/Library/Application Support/com.steipete.codexbar/history/`.
+Account ownership and identity checks remain intact. The sampler does not reconstruct Grok history from before the build.
+
 
 ## Daily cost and budget
 
@@ -110,6 +242,15 @@ The signature includes mirror cost, tokens, and request count, plus native log s
 Unchanged signatures skip parsing. Read failures retain the previous value and log once without file contents.
 Tests suppress the singleton's real-home scans.
 
+`GrokDailyCostCache.daily` holds the priced 30-day series and `dailyRevision` changes when that series changes.
+Native sessions and Pi/OMP mirror rows contribute to the same local-day entries.
+Today's daily entry uses the same USD value as the pill's Grok total.
+Unknown models retain nil cost and their model rows. A mixed day retains its known priced subtotal.
+The cache retains parsed native sessions by path, size, and modification date for the process lifetime.
+`GrokPricedDaily.applying(_:to:)` projects the priced days into Grok token snapshots before the history-day filter.
+A cache change republishes that snapshot in the same main-actor turn, so panel and spend views read the priced series.
+Scan failures retain the previous series. A new local day clears it with the cached Today value.
+
 ### Memory
 
 Pi/OMP already streams JSONL records, skips unchanged file stamps, and resumes appended files from their committed offsets.
@@ -144,6 +285,22 @@ Paths below are relative to `Sources/CodexBar`.
 | H5 | `StatusItem/StatusItemController+Animation.swift` :: `blinkAmount`, `wiggleAmount`, `tiltAmount`, `loadingBlinkAmount`, `setButtonContent`, `loadingPercentEpsilon` :: remove `private` | S5 |
 | H6 | `StatusItem/StatusItemController+IconObservation.swift` :: `storeIconObservationSignature` :: grouped early return; `providerStoreIconObservationSignature` :: remove `private` | S2 |
 | H7 | `Settings/PreferencesMenuBarPane.swift` :: `MenuBarPane.body` :: insert `GroupedProviderIconSettingsRows` after merged style picker | Settings UI |
+| H8 | `StatusItem/StatusItemController.swift` :: `attachMenus()` :: first-line `if self.attachPacePanelIfActive() { return }`. `attachMenus(fallback:)` :: first-line `self.detachPacePanel()` | `PacePanelHostTests`, merged-menu suppression and restored click |
+| H9 | No hook assigned in the Pace build plan. No upstream edit to reapply | None |
+| H10 | `StatusItem/StatusItemController+Shutdown.swift` :: `clearShutdownMenuState()` :: call `detachPacePanel()` immediately before `mergedMenu = nil` | Panel cleanup and shutdown |
+| H11 | `UsageStore/UsageStore+PlanUtilization.swift` :: `supportsPlanUtilizationHistory(for:)` :: return true before capability checks in Pace mode | `PaceSamplerTests`, capability bypass |
+| H11 | Same file :: `planUtilizationHistorySelection(for:readOnly:)` :: accept Pace mode in the capability guard | History selection and lazy load |
+| H11 | Same file :: `planUtilizationHistorySelection(for:account:)` :: same capability bypass, retain loaded-history and account-key guards | Account ownership |
+| H11 | Same file :: `planUtilizationHistorySelection(for:snapshotOverride:)` :: same capability bypass, retain loaded-history and snapshot-identity guards | Snapshot ownership |
+| H11 | Same file :: `recordPlanUtilizationHistorySample(...)` :: accept Pace mode in the capability guard. Create separate Pace samples after `postLimitResetCelebrationsIfNeeded`. Continue if either sample list has data | Detector isolation, T10-T12 |
+| H11 | Same file :: `recordPlanUtilizationHistorySample(...)` :: append Pace samples after `reconcileGenericSessionEquivalentHistory`. Select `updatedPaceSamplerHistories` only in Pace mode, otherwise keep `updatedPlanUtilizationHistories` | Cadence transitions, hourly retention |
+| H11 | Same file :: `shouldRecordPlanUtilizationHistory(for:)` :: Pace mode OR the original capability and always-tracked/opt-in expression | Opt-in bypass only in Pace mode |
+| H11 | Same file :: `planUtilizationHourBucket(for:)` :: remove `private` for the sampler updater. Keep the formula unchanged | Shared hourly bucket |
+| H12 | `Providers/Grok/UsageStore+GrokLocalSessions.swift` :: `grokLocalTokenSnapshot(from:historyDays:cache:)` :: install the weak cache republisher. Apply `GrokPricedDaily.applying(_:to:)` before the day filter and sum projected daily costs | `GrokPricedDailyTests`, `GroupedCostParityTests` |
+| H12 | Same file :: `republishGrokPricedTokenSnapshot(cache:)` :: publish the projected snapshot or confirmed-empty result after cache changes | Same-turn daily projection |
+| H13 | `Menu/PlanUtilizationHistoryChartMenuView.swift` :: `Model`, `Point`, `makeModel(history:provider:referenceDate:)` :: remove `private`, with no behavior change | `PaceProviderTabModelTests`, history chips |
+| H14 | `Tests/CodexBarTests/LocalizationLanguageCatalogTests.swift` :: `italian localization matches English catalog and includes current UI labels` :: add `.union(PacePanelLocalizationTests.intentionallyUnchangedKeys)` to the unchanged-English allowlist | `PacePanelLocalizationTests`, Italian catalog |
+| H15 | `Resources/*.lproj/Localizable.strings` :: all 23 catalogs :: add Pace keys and translated values. Pure formats and Opus remain unchanged | `PacePanelLocalizationTests`, key and format parity |
 
 The grouped controller uses its own uniform pill renderer; the upstream single-provider renderer remains unchanged.
 On upstream sync, preserve quota selection, stale state, native contrast/highlight handling, and menu interaction.
@@ -156,6 +313,25 @@ The catalog gate unions `SettingsStoreGroupedIconTests.localizationKeys` into it
 That hook changes one assertion in `Tests/CodexBarTests/LocalizationLanguageCatalogTests.swift`.
 It keeps grouped strings in English in every locale, as the spec requires, without weakening other catalog checks.
 
+H11 is wider than the original two-line sampler hook. Preserve every H11 row on an upstream sync.
+The capability bypass does not remove account ownership, identity, or history-load checks.
+The non-Pace path retains its original updater and detector samples.
+H14 names a test file outside the source-relative path convention above.
+
+The panel uses these fork-owned seams, not additional upstream hooks:
+
+|Surface|Seams to preserve|
+|---|---|
+|`StatusItem/StatusItemController+GroupedIcons.swift`|`groupedProviders` and `groupedCostInputs(now:)` have internal access for the panel adapter. Both remain the shared source of tile order and costs|
+|`StatusItem/StatusItemController+PacePanel.swift`|`attachPacePanelIfActive()`, `detachPacePanel()`, and `togglePacePanel(_:)` own native-menu suppression, the click target, and restoration of the original event mask|
+|Same file|`makePacePanelContent()` and `makePacePanelInput(now:)` adapt store observation, selected-account card data, histories, token snapshots, and the shared retained cost slot|
+|Same file|`performPacePanelCommand(_:)` and `performPacePanelAction(_:)` route shortcuts, tab selection, and native actions. Window and URL actions close the panel first|
+|`PacePanel/PacePanelHost.swift`|`PacePanelHost.toggle(anchor:)`, `show(itemScreenFrame:visibleFrame:)`, `refreshContent()`, and `close()` own the panel lifetime|
+|Same file|`PacePanelEventSources` injects monitors and notification centers. `PacePanelPlacement.frame(itemScreenFrame:visibleFrame:contentSize:)` clamps placement and scroll height|
+|Same file|`PacePanelKeyMap.command(for:shortcuts:)` maps shortcuts. `PaceKeyPanel` owns key eligibility, `cancelOperation(_:)`, `resignKey()`, and key dispatch|
+|`PacePanel/PaceGlassView.swift`|`init(frame:)`, `viewDidChangeEffectiveAppearance()`, and `refreshAppearance()` own material, dynamic tint, and Reduce Transparency|
+
+
 ## Tests and gates
 
 Run the grouped suites: `GroupedProviderIconComposerTests`, `GroupedProviderIconPlanTests`,
@@ -163,14 +339,50 @@ Run the grouped suites: `GroupedProviderIconComposerTests`, `GroupedProviderIcon
 `GroupedProviderIconStatusItemTests`, and `SettingsStoreGroupedIconTests`.
 The settings suite checks all 23 locale catalogs for the same grouped keys.
 
+Pace adds these suites:
+
+|Suite|Gate|
+|---|---|
+|`WindowPaceTests`|Fractions, reserve, duration classes, text, invalid windows, and next-pixel timing|
+|`GroupedTooltipTests`|Window lines, used/remaining mode, and fallback tooltip refresh|
+|`PaceSamplerTests`|All-provider captures, raw durations, capability and opt-in bypass, detector isolation, cadence changes, ownership, hourly coalescing, and retention|
+|`GrokPricedDailyTests`|Native and mirrored daily pricing, unpriced models, Today equality, and token projection|
+|`PacePanelHostTests`|Placement, scroll height, injected dismissal paths, hosting-view release, native-menu suppression, shortcuts, and observation lifetime|
+|`PacePanelModelTests`|Shared cost strings, elapsed-fraction samples, missing history, and forbidden product text|
+|`PacePanelRenderProofTests`|Overview defaults, retained reload totals, accessibility summaries, chart labels, and opt-in overview/pill proofs|
+|`PaceProviderTabModelTests`|Filtered actions, account and error recovery, cost periods, model rows, history chips, and single/multiple burndowns|
+|`PaceProviderTabRenderProofTests`|Populated provider proofs and the 360 pt localized cost layout|
+|`PacePanelLocalizationTests`|Source/catalog key equality, duplicate keys, format parity, untranslated prose, and forbidden product text|
+
+The existing composer, daily-cost, status-item, Grok, and plan-utilization suites also guard Pace behavior.
+Run these focused gates for the grouped item and Pace:
+
 ```sh
+make test-fast FILTER=WindowPace
 make test-fast FILTER=Grouped
+make test-fast FILTER=PaceSampler
+make test-fast FILTER=PlanUtilization
 make test-fast FILTER=Grok
-make test-fast FILTER=ProviderArchitectureGatekeeper
+make test-fast FILTER=GroupedCostParity
+make test-fast FILTER=PacePanelHost
+make test-fast FILTER=PacePanelModel
+make test-fast FILTER=PacePanelRenderProof
+make test-fast FILTER=PaceProviderTab
 make test-fast FILTER=Localization
+make test-fast FILTER=ProviderArchitectureGatekeeper
 make check
-make test
 ```
+
+Set `CODEXBAR_PACE_PANEL_PROOF_DIR` to an explicit output directory for the opt-in offscreen proofs.
+The Overview suite writes `overview-dark.png`, `overview-light.png`, and `pill-states.png`.
+The provider suite writes `claude-dark.png`, `claude-light.png`, `grok-dark.png`, `grok-light.png`, and `codex-dark.png`.
+It also writes `grok-cost-localization.png` for the longest localized cost caption and amount.
+Without that variable, proof methods skip. Other assertions in those suites still run.
+Synthetic proofs do not prove real menu-bar hover, key focus, glass over wallpaper, or VoiceOver.
+The operator owns those checks and the installed resource measurements.
+The Pace integration slice owns the background full suite, `./Scripts/test.sh --direct-workers 8`, and local-signing package.
+No documentation slice installs or launches CodexBar.
+
 
 `test-fast` wraps `swift test --filter` with the repository's isolated, credential-scrubbed test environment.
 Do not run live account probes or permit Keychain access for these gates.
