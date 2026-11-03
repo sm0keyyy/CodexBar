@@ -178,8 +178,10 @@ final class PacePanelRenderProofTests: XCTestCase {
                 input.snapshots[.codex] = UsageSnapshot(
                     primary: nil,
                     secondary: .init(
-                        usedPercent: 63, windowMinutes: 10080,
-                        resetsAt: self.now.addingTimeInterval(604_800 * 0.46), resetDescription: nil),
+                        usedPercent: 63,
+                        windowMinutes: 10080,
+                        resetsAt: self.now.addingTimeInterval(604_800 * 0.46),
+                        resetDescription: nil),
                     updatedAt: self.now)
             }
             XCTAssertEqual(PacePanelModel.make(input).warnings.count, hasWarnings ? 2 : 0)
