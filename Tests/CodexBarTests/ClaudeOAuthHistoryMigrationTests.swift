@@ -100,13 +100,26 @@ struct ClaudeOAuthHistoryMigrationTests {
         #expect(buckets == original)
     }
 
-    @Test(arguments: ["overlap", "weekly reset", "gap", "cutover", "missing weekly", "session reset"])
+    @Test(arguments: [
+        "overlap", "weekly reset", "gap", "cutover", "missing weekly", "session reset", "missing reset", "cadence",
+    ])
     func `ambiguous fragments remain separate`(conflict: String) {
         var earlier = self.histories(first: 1, last: conflict == "overlap" ? 3.5 : 2)
         var later = self.histories(first: conflict == "gap" ? 16 : 3, last: 17)
         if conflict == "weekly reset" { later = self.histories(first: 3, last: 4, weeklyReset: 201) }
         if conflict == "session reset" { later = self.histories(first: 3, last: 4, sessionReset: 13) }
         if conflict == "missing weekly" { earlier.removeAll { $0.name == .weekly } }
+        if conflict == "missing reset" {
+            earlier = earlier.map {
+                PlanUtilizationSeriesHistory(name: $0.name, windowMinutes: $0.windowMinutes, entries: $0.entries.map {
+                    PlanUtilizationHistoryEntry(capturedAt: $0.capturedAt, usedPercent: $0.usedPercent, resetsAt: nil)
+                })
+            }
+        }
+        if conflict == "cadence", let weekly = later.first(where: { $0.name == .weekly }) {
+            later.removeAll { $0.name == .weekly }
+            later.append(PlanUtilizationSeriesHistory(name: .weekly, windowMinutes: 9000, entries: weekly.entries))
+        }
         let legacy = self.histories(first: 0, last: conflict == "cutover" ? 2.5 : 0)
         var buckets = PlanUtilizationHistoryBuckets(preferredAccountKey: self.key(2), accounts: [
             self.key(1): earlier, self.key(2): later, "legacy": legacy,
