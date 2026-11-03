@@ -11,6 +11,8 @@ struct PacePanelInput {
     var costEnabled = true
     var preferredCurrencyCode = "USD"
     var dailyBudgetUSD: Double = 0
+    var isReloading = false
+    var retainedTodayTotalUSD: Double?
     let now: Date
     var calendar: Calendar = .current
 }

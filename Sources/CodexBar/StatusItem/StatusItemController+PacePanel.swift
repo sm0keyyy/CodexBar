@@ -88,6 +88,19 @@ extension StatusItemController {
             preferredCurrencyCode: self.settings.preferredCurrencyCode,
             dailyBudgetUSD: self.settings.menuBarGroupedDailyBudgetUSD,
             now: now)
+        input.isReloading = input.todayCostInputs.contains { $0.value == .loading }
+            || providers.contains {
+                GroupedProviderIconPlan.quota(snapshot: self.menuBarUsageSource(for: $0).snapshot).shortest == nil
+                    || self.isRefreshingLocalMenuBarUsage($0)
+            }
+        if let button = self.statusItem.button, let owner = GroupedTooltipOwner.attached(to: button) {
+            let slot = owner.costSlot.resolve(
+                inputs: input.todayCostInputs,
+                isReloading: input.isReloading,
+                preferredCurrency: input.preferredCurrencyCode,
+                now: now)
+            if slot.dimmed { input.retainedTodayTotalUSD = slot.totalUSD }
+        }
         for provider in providers {
             input.snapshots[provider] = self.store.snapshot(for: provider.instanceID)
             input.histories[provider] = self.store.planUtilizationHistorySelection(
