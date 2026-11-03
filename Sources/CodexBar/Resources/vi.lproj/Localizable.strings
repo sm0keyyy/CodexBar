@@ -2827,3 +2827,13 @@
 "pace_fraction_elapsed" = "fraction of window elapsed";
 "pace_reset" = "reset";
 "pace_unpriced" = "unpriced";
+
+"pace_window_class" = "Window class";
+"pace_no_windows" = "no active windows in this class";
+"pace_chart_guidance" = "above the dashed ideal = ahead · below = behind";
+"pace_tick_legend" = "ideal now";
+"pace_fill_used" = "fill = used · gap = reserve";
+"pace_fill_remaining" = "fill = remaining · gap = reserve";
+"pace_seven_day_cost" = "7 days · cost per day";
+"pace_stacked_by_provider" = "stacked by provider";
+"pace_no_cost_history" = "no cost history yet";
