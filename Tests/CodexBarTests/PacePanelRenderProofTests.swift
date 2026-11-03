@@ -180,8 +180,12 @@ final class PacePanelRenderProofTests: XCTestCase {
                 ("light", ColorScheme.light, NSAppearance.Name.aqua),
             ] {
                 let view = PacePanelRootView(
-                    input: input, model: .make(input), selection: .overview, providerContext: nil,
-                    onCommand: { _ in }, onAction: { _ in })
+                    input: input,
+                    model: .make(input),
+                    selection: .overview,
+                    providerContext: nil,
+                    onCommand: { _ in },
+                    onAction: { _ in })
                     .background(PaceProofGlass())
                     .environment(\.colorScheme, scheme)
                     .fixedSize(horizontal: false, vertical: true)

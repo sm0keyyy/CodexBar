@@ -173,7 +173,8 @@ extension StatusItemController {
         return GroupedTooltipOwner.tooltip(
             providers: providers.map {
                 .init(
-                    provider: $0, snapshot: self.menuBarUsageSource(for: $0).snapshot,
+                    provider: $0,
+                    snapshot: self.menuBarUsageSource(for: $0).snapshot,
                     state: self.groupedPillState(provider: $0))
             },
             showUsed: self.settings.usageBarsShowUsed,
