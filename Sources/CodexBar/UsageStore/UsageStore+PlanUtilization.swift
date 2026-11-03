@@ -370,7 +370,8 @@ extension UsageStore {
         }
 
         guard let snapshotToPersist else { return }
-        await self.planUtilizationPersistenceCoordinator.enqueue(snapshotToPersist)
+        await self.planUtilizationPersistenceCoordinator.enqueue(
+            snapshotToPersist, coalescingPaceSamples: self.isPaceSamplerActive)
     }
 
     func shouldRecordPlanUtilizationHistory(for provider: UsageProvider) -> Bool {
@@ -1593,15 +1594,19 @@ extension UsageStore {
 
 actor PlanUtilizationHistoryPersistenceCoordinator {
     private let store: PlanUtilizationHistoryStore
-    private var pendingSnapshot: [ProviderInstanceID: PlanUtilizationHistoryBuckets]?
+    private var pendingSnapshot: (
+        history: [ProviderInstanceID: PlanUtilizationHistoryBuckets], coalescingPaceSamples: Bool)?
     private var persistTask: Task<Void, Never>?
 
     init(store: PlanUtilizationHistoryStore) {
         self.store = store
     }
 
-    func enqueue(_ snapshot: [ProviderInstanceID: PlanUtilizationHistoryBuckets]) {
-        self.pendingSnapshot = snapshot
+    func enqueue(
+        _ snapshot: [ProviderInstanceID: PlanUtilizationHistoryBuckets],
+        coalescingPaceSamples: Bool = false)
+    {
+        self.pendingSnapshot = (snapshot, coalescingPaceSamples)
         guard self.persistTask == nil else { return }
         self.persistTask = Task(priority: .utility) {
             await self.persistLoop()
@@ -1612,24 +1617,30 @@ actor PlanUtilizationHistoryPersistenceCoordinator {
         await self.persistTask?.value
     }
 
-    func flush(_ snapshot: [ProviderInstanceID: PlanUtilizationHistoryBuckets]) async {
-        self.enqueue(snapshot)
+    func flush(
+        _ snapshot: [ProviderInstanceID: PlanUtilizationHistoryBuckets],
+        coalescingPaceSamples: Bool = false) async
+    {
+        self.enqueue(snapshot, coalescingPaceSamples: coalescingPaceSamples)
         await self.waitForPendingWrites()
     }
 
     private func persistLoop() async {
         while let nextSnapshot = self.pendingSnapshot {
             self.pendingSnapshot = nil
-            await self.saveAsync(nextSnapshot)
+            await self.saveAsync(nextSnapshot.history, coalescingPaceSamples: nextSnapshot.coalescingPaceSamples)
         }
 
         self.persistTask = nil
     }
 
-    private func saveAsync(_ snapshot: [ProviderInstanceID: PlanUtilizationHistoryBuckets]) async {
+    private func saveAsync(
+        _ snapshot: [ProviderInstanceID: PlanUtilizationHistoryBuckets],
+        coalescingPaceSamples: Bool) async
+    {
         let store = self.store
         await Task.detached(priority: .utility) {
-            store.save(snapshot)
+            store.save(snapshot, coalescingPaceSamples: coalescingPaceSamples)
         }.value
     }
 }
