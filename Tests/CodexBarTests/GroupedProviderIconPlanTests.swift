@@ -107,8 +107,11 @@ struct GroupedProviderIconPlanTests {
         #expect(detail?.remainingPercent == (warns ? remaining : nil))
         if remaining == 37, warns {
             #expect(detail?.threshold == thresholds.max())
-            if case let .behind(deficit) = detail?.cause { #expect(abs(deficit - 9) < 0.001) }
-            else { Issue.record("Expected the actual 9 percent pace deficit") }
+            if case let .behind(deficit) = detail?.cause {
+                #expect(abs(deficit - 9) < 0.001)
+            } else {
+                Issue.record("Expected the actual 9 percent pace deficit")
+            }
         }
     }
 

@@ -135,9 +135,12 @@ struct GroupedTooltipTests {
 
     @Test func `warning explanation takes precedence over stale and refresh just like the outline`() {
         let state = GroupedPillState(
-            hasData: true, stale: true, refreshing: true,
+            hasData: true,
+            stale: true,
+            refreshing: true,
             warning: .init(remainingPercent: 37, threshold: 50, windowLabel: "Weekly", cause: .behind(9)),
-            flash: true, updatedAt: self.now)
+            flash: true,
+            updatedAt: self.now)
         #expect(state.explanation(provider: .codex, now: self.now)
             == "Codex: Weekly has 37% left, behind pace by 9%; warning level 50%")
         #expect(GroupedPillState(hasData: true).explanation(provider: .codex, now: self.now) == nil)

@@ -269,8 +269,11 @@ struct GroupedProviderIconStatusItemTests {
             ? "Codex: Weekly has 37% left, behind pace by 9%; warning level 50%"
             : "Codex: Weekly has 15% left, at or below your 20% warning level")
         #expect(model.providers.first?.stateExplanation == expected)
-        if let expected { #expect(controller.groupedTooltip(now: now)?.contains(expected) == true) }
-        else { #expect(controller.groupedTooltip(now: now)?.contains("warning level") == false) }
+        if let expected {
+            #expect(controller.groupedTooltip(now: now)?.contains(expected) == true)
+        } else {
+            #expect(controller.groupedTooltip(now: now)?.contains("warning level") == false)
+        }
     }
 
     @Test func `provider failures share the red cue and clear without a dismissed warning`() throws {
