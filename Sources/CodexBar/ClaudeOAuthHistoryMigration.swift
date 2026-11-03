@@ -62,8 +62,9 @@ private struct ClaudeOAuthHistoryFragment {
     let last: Date
 
     init?(key: String, histories: [PlanUtilizationSeriesHistory]) {
-        let dates = histories.flatMap(\.entries).map(\.capturedAt)
-        guard let first = dates.min(), let last = dates.max() else { return nil }
+        guard let first = histories.compactMap({ $0.entries.first?.capturedAt }).min(),
+              let last = histories.compactMap(\.latestCapturedAt).max()
+        else { return nil }
         self.key = key
         self.histories = histories
         self.first = first
@@ -75,6 +76,8 @@ private struct ClaudeOAuthHistoryFragment {
         guard self.last < next.first, next.first.timeIntervalSince(self.last) <= 12 * 3600,
               let weekly = self.histories.first(where: { $0.name == .weekly }),
               let nextWeekly = next.histories.first(where: { $0.name == .weekly }),
+              weekly.name.canonicalWindowMinutes(weekly.windowMinutes)
+              == nextWeekly.name.canonicalWindowMinutes(nextWeekly.windowMinutes),
               UsageStore.areEquivalentPlanUtilizationResetBoundaries(
                   weekly.entries.last?.resetsAt, nextWeekly.entries.first?.resetsAt)
         else { return false }
@@ -83,10 +86,13 @@ private struct ClaudeOAuthHistoryFragment {
                 $0.name == history.name
                     && $0.name.canonicalWindowMinutes($0.windowMinutes)
                     == history.name.canonicalWindowMinutes(history.windowMinutes)
-            }), let reset = history.entries.last?.resetsAt else { continue }
+            }) else { continue }
+            guard let reset = history.entries.last(where: { $0.resetsAt != nil })?.resetsAt,
+                  let nextReset = following.entries.first(where: { $0.resetsAt != nil })?.resetsAt
+            else { return false }
             // An expired session can restart between polls. An active window must retain its reset boundary.
             if reset > next.first,
-               !UsageStore.areEquivalentPlanUtilizationResetBoundaries(reset, following.entries.first?.resetsAt)
+               !UsageStore.areEquivalentPlanUtilizationResetBoundaries(reset, nextReset)
             { return false }
         }
         return true
