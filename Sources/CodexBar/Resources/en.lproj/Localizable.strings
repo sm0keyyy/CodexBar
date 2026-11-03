@@ -2870,3 +2870,4 @@
 "pace_history_opus" = "Opus";
 "pace_estimated_cost_format" = "≈%@ (estimate)";
 "pace_weekly_cost_tokens_format" = "%1$@ · %2$@ tokens";
+"pace_partly_unpriced" = "partly unpriced";

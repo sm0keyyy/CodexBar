@@ -27,6 +27,11 @@ struct PaceProviderTabModel {
         let share: Double?
     }
 
+    struct CostPeriod: Equatable {
+        let amount: String
+        let caption: String?
+    }
+
     struct Action {
         let title: String
         let action: MenuDescriptor.MenuAction
@@ -38,8 +43,8 @@ struct PaceProviderTabModel {
     let paceSummary: String?
     let isBehind: Bool
     let today: String
-    let sevenDays: String
-    let thirtyDays: String
+    let sevenDays: CostPeriod
+    let thirtyDays: CostPeriod
     let daily: [PaceDayStack]
     let models: [ModelCost]
     let quotaWeek: InlineUsageDashboardModel.QuotaWindow?
@@ -157,15 +162,17 @@ struct PaceProviderTabModel {
     }
 
     private static func periodCost(
-        entries: [CostUsageDailyReport.Entry], partial: Bool, currency: String, preferred: String) -> String
+        entries: [CostUsageDailyReport.Entry], partial: Bool, currency: String, preferred: String) -> CostPeriod
     {
         let costs = entries.compactMap(\.costUSD)
-        guard !costs.isEmpty else { return entries.isEmpty ? L("pace_not_captured") : L("pace_unpriced") }
+        guard !costs.isEmpty else {
+            return CostPeriod(amount: entries.isEmpty ? L("pace_not_captured") : L("pace_unpriced"), caption: nil)
+        }
         let value = UsageFormatter.convertedCostString(
             costs.reduce(0, +), preferredCurrency: preferred, providerCurrency: currency)
-        let subtotal = partial ? L("pace_partial_cost_format", value) : value
-        return entries.contains(where: self.hasUnpricedUsage)
-            ? L("pace_cost_with_unpriced_format", subtotal) : subtotal
+        return CostPeriod(
+            amount: partial ? L("pace_partial_cost_format", value) : value,
+            caption: entries.contains(where: self.hasUnpricedUsage) ? L("pace_partly_unpriced") : nil)
     }
 
     private static func hasUnpricedUsage(_ entry: CostUsageDailyReport.Entry) -> Bool {

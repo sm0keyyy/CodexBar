@@ -60,7 +60,8 @@ struct PaceProviderTabModelTests {
         #expect(model.models[3].title == "all other models")
         #expect(model.models[3].share == 0.2)
         #expect(model.costText(model.models[4].cost) == "unpriced")
-        #expect(model.thirtyDays == "$150.00 · unpriced")
+        #expect(model.thirtyDays.amount == "$150.00")
+        #expect(model.thirtyDays.caption == "partly unpriced")
         let entries = try #require(input.tokenSnapshots[.grok]?.daily)
         input.tokenSnapshots[.grok] = Self.costSnapshot(
             now: input.now, daily: entries + [Self.entry(date: "2026-11-01", cost: 50)])
@@ -109,15 +110,18 @@ struct PaceProviderTabModelTests {
         ])
         let model = try self.model(.grok, input: input)
         #expect(model.today == "$7.96")
-        #expect(model.sevenDays == "$17.96")
-        #expect(model.thirtyDays == "$37.96")
+        #expect(model.sevenDays.amount == "$17.96")
+        #expect(model.sevenDays.caption == nil)
+        #expect(model.thirtyDays.amount == "$37.96")
+        #expect(model.thirtyDays.caption == nil)
         #expect(model.daily.count == 30)
         #expect(model.daily.compactMap(\.totalUSD).reduce(0, +) == 37.96)
         #expect(model.daily[1].totalUSD == nil)
         input.costEnabled = false
         let disabled = try self.model(.grok, input: input)
         #expect(disabled.models.isEmpty)
-        #expect(disabled.thirtyDays == "not captured")
+        #expect(disabled.thirtyDays.amount == "not captured")
+        #expect(disabled.thirtyDays.caption == nil)
         #expect(disabled.daily.allSatisfy { $0.totalUSD == nil })
     }
 
@@ -133,6 +137,10 @@ struct PaceProviderTabModelTests {
         #expect(model.costText(row.cost, hasUnpricedUsage: row.hasUnpricedUsage) == "$2.00 · unpriced")
         #expect(model.daily.last?.unpricedProviders == [.grok])
         #expect(model.daily.last?.totalUSD == nil)
+        #expect(model.sevenDays.amount == "$2.00")
+        #expect(model.sevenDays.caption == "partly unpriced")
+        #expect(model.thirtyDays.amount == "$2.00")
+        #expect(model.thirtyDays.caption == "partly unpriced")
     }
 
     @Test func `weekly quota cost follows the current reset and missing snapshots stay empty`() throws {
@@ -152,7 +160,8 @@ struct PaceProviderTabModelTests {
 
     @Test func `provider model text never exposes the forbidden name`() throws {
         let model = try self.model(.claude, input: Self.fixture())
-        let texts = [model.today, model.sevenDays, model.thirtyDays, model.paceSummary ?? ""]
+        let texts = [model.today, model.sevenDays.amount, model.thirtyDays.amount, model.paceSummary ?? ""]
+            + [model.sevenDays.caption, model.thirtyDays.caption].compactMap(\.self)
             + model.models.map(\.title) + model.histories.map(\.title) + model.actions.map(\.title)
         #expect(texts.allSatisfy { !$0.localizedCaseInsensitiveContains("Code" + "Burn") })
     }

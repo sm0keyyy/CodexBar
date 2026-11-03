@@ -188,9 +188,13 @@ struct PaceProviderTabView: View {
     private func costs(_ model: PaceProviderTabModel) -> some View {
         VStack(alignment: .leading, spacing: 7) {
             HStack(alignment: .top, spacing: 10) {
-                self.stat(L("Today"), value: model.today)
-                self.stat(L("7 days"), value: model.sevenDays)
-                self.stat(L("pace_thirty_days"), value: model.thirtyDays)
+                PaceProviderCostStat(title: L("Today"), amount: model.today, caption: nil)
+                PaceProviderCostStat(
+                    title: L("7 days"),
+                    amount: model.sevenDays.amount,
+                    caption: model.sevenDays.caption)
+                PaceProviderCostStat(
+                    title: L("pace_thirty_days"), amount: model.thirtyDays.amount, caption: model.thirtyDays.caption)
             }
             if let week = model.quotaWeek {
                 PaceKeyValueRow(title: L("pace_current_weekly_window"), value: week.value)
@@ -281,6 +285,29 @@ struct PaceProviderTabView: View {
 
     private func percent(_ value: Double) -> String {
         value.formatted(.number.precision(.fractionLength(0))) + "%"
+    }
+}
+
+struct PaceProviderCostStat: View {
+    let title: String
+    let amount: String
+    let caption: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(self.title).font(.system(size: 9)).foregroundStyle(.secondary)
+            Text(self.amount)
+                .font(.system(size: 12, weight: .semibold))
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.65)
+            if let caption = self.caption {
+                Text(caption).font(.system(size: 10)).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
     }
 }
 
