@@ -2810,3 +2810,16 @@
 "pace_tooltip_window_format" = "%@ %@ %@";
 "pace_tooltip_resets_format" = "resets %@";
 "pace_tooltip_unknown_format" = "%@: %@";
+
+"pace_every_provider" = "Pace · every provider";
+"pace_row_used_format" = "%@ %@, %.0f percent used";
+"pace_row_remaining_format" = "%@ %@, %.0f percent remaining";
+"pace_resets_in_format" = "resets in %@";
+"pace_chart_point_format" = "%@: %.0f percent remaining at %.0f percent of the window elapsed";
+"pace_shared_chart_summary" = "Remaining quota by fraction of window elapsed. Above the dashed ideal is ahead, below is behind";
+"pace_chart_label_format" = "%@ %.0f%%";
+"pace_ideal" = "ideal";
+"pace_window_start" = "window start";
+"pace_fraction_elapsed" = "fraction of window elapsed";
+"pace_reset" = "reset";
+"pace_unpriced" = "unpriced";
