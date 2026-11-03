@@ -1,3 +1,4 @@
+import CodexBarCore
 import Foundation
 import Testing
 @testable import CodexBar
@@ -37,6 +38,66 @@ struct ClaudeOAuthHistoryMigrationTests {
         #expect(try Data(contentsOf: file) == migrated)
         #expect(try Data(contentsOf: codexFile) == untouched)
         #expect(writes.count == 1)
+    }
+
+    @MainActor
+    @Test
+    func `first profile after another renewal adopts the compatible loaded tail`() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let fixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .appendingPathComponent("Fixtures/claude-oauth-renewal-fragments.json")
+        try FileManager.default.copyItem(at: fixture, to: directory.appendingPathComponent("claude.json"))
+        let store = UsageStorePlanUtilizationTests.makeStore()
+        store.planUtilizationHistory = PlanUtilizationHistoryStore(directoryURL: directory).load()
+        let previousKey = try #require(store.planUtilizationHistory[.claude]?.preferredAccountKey)
+        let now = try #require(ISO8601DateFormatter().date(from: "2026-11-03T22:00:00Z"))
+        let weeklyReset = try #require(ISO8601DateFormatter().date(from: "2026-11-04T21:00:00Z"))
+        let snapshot = UsageSnapshot(
+            primary: RateWindow(
+                usedPercent: 10, windowMinutes: 300, resetsAt: now.addingTimeInterval(10800), resetDescription: nil),
+            secondary: RateWindow(usedPercent: 50, windowMinutes: 10080, resetsAt: weeklyReset, resetDescription: nil),
+            updatedAt: now,
+            identity: ProviderIdentitySnapshot(
+                providerID: .claude, accountEmail: "fixture@example.com", accountOrganization: nil, loginMethod: nil))
+        await store.recordPlanUtilizationHistorySample(
+            provider: .claude,
+            snapshot: snapshot,
+            claudeOAuthHistoryOwnerIdentifier: String(repeating: "f", count: 64),
+            claudeOAuthProfileIdentity: UsageStore.legacyClaudePlanUtilizationEmailAccountKey(snapshot: snapshot),
+            claudeOAuthKeychainCredentialUnavailable: true,
+            isClaudeOAuthSample: true,
+            now: now)
+        let buckets = try #require(store.planUtilizationHistory[.claude])
+        let preferred = try #require(buckets.preferredAccountKey)
+        #expect(preferred != previousKey)
+        #expect(buckets.accounts[previousKey] == nil)
+        #expect(buckets.accounts.count == 4)
+        #expect(buckets.accounts[preferred]?.first { $0.name == .session }?.entries.count == 38)
+        #expect(buckets.accounts[preferred]?.first { $0.name == .weekly }?.entries.count == 38)
+    }
+
+    @Test(arguments: [false, true])
+    func `profile adoption preserves known and quarantined accounts`(quarantined: Bool) throws {
+        let oldOwner = String(repeating: "a", count: 64)
+        let newIdentity = String(repeating: "b", count: 64)
+        let preferred = try #require(UsageStore.claudeOAuthPlanUtilizationAccountKey(historyOwnerIdentifier: oldOwner))
+        let target = try #require(UsageStore.claudeOAuthPlanUtilizationAccountKey(historyOwnerIdentifier: newIdentity))
+        var buckets = PlanUtilizationHistoryBuckets(
+            preferredAccountKey: preferred, accounts: [preferred: self.histories(first: 1, last: 2)])
+        let original = buckets
+        let following = self.histories(first: 3, last: 4).map {
+            UsageStore.PlanUtilizationSeriesSample(name: $0.name, windowMinutes: $0.windowMinutes, entry: $0.entries[0])
+        }
+        var bindings = ["profile:new-owner": newIdentity]
+        if quarantined {
+            bindings["unverified:\(preferred)"] = String(repeating: "c", count: 64)
+        } else {
+            bindings[oldOwner] = String(repeating: "c", count: 64)
+        }
+        buckets.adoptClaudeOAuthLegacyTail(into: target, following: following, bindings: bindings)
+        #expect(buckets == original)
     }
 
     @Test(arguments: ["overlap", "weekly reset", "gap", "cutover", "missing weekly", "session reset"])

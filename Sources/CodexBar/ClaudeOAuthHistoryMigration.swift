@@ -28,6 +28,41 @@ extension PlanUtilizationHistoryBuckets {
         self.setHistories(merged, for: preferred)
     }
 
+    mutating func adoptClaudeOAuthLegacyTail(
+        into accountKey: String,
+        following samples: [UsageStore.PlanUtilizationSeriesSample],
+        bindings: [String: String])
+    {
+        guard self.accounts[accountKey] == nil, !samples.isEmpty,
+              let preferred = self.preferredAccountKey, preferred != accountKey,
+              preferred.hasPrefix("__claude_oauth__:"), bindings["unverified:\(preferred)"] == nil,
+              let histories = self.accounts[preferred],
+              let previous = ClaudeOAuthHistoryFragment(key: preferred, histories: histories)
+        else { return }
+        // Installation can happen after another renewal. Only an unbound legacy tail may join the first
+        // authenticated profile; known accounts and quarantined scopes must never cross this bridge.
+        guard bindings.contains(where: { owner, identity in
+            owner.hasPrefix("profile:")
+                && UsageStore.claudeOAuthPlanUtilizationAccountKey(historyOwnerIdentifier: identity) == accountKey
+        }), !bindings.contains(where: { owner, identity in
+            UsageStore.claudeOAuthPlanUtilizationAccountKey(historyOwnerIdentifier: owner) == preferred
+                || UsageStore.claudeOAuthPlanUtilizationAccountKey(historyOwnerIdentifier: identity) == preferred
+        }) else { return }
+        let cutover = self.accounts.filter { !$0.key.hasPrefix("__claude_oauth__:") }
+            .values.flatMap(\.self).compactMap(\.latestCapturedAt).max() ?? .distantPast
+        let following = samples.map {
+            PlanUtilizationSeriesHistory(name: $0.name, windowMinutes: $0.windowMinutes, entries: [$0.entry])
+        }
+        guard previous.first >= cutover,
+              let current = ClaudeOAuthHistoryFragment(key: accountKey, histories: following),
+              previous.canPrecede(current)
+        else { return }
+        self.accounts.removeValue(forKey: preferred)
+        self.setHistories(Self.canonicalClaudeOAuthHistories(histories), for: accountKey)
+        self.moveSessionEquivalentWindowPairIdentity(from: preferred, to: accountKey)
+        self.preferredAccountKey = accountKey
+    }
+
     private static func canonicalClaudeOAuthHistories(
         _ histories: [PlanUtilizationSeriesHistory]) -> [PlanUtilizationSeriesHistory]
     {

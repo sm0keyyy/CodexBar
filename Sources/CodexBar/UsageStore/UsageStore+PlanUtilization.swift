@@ -324,6 +324,7 @@ extension UsageStore {
                 snapshot: snapshot,
                 preferredAccount: preferredAccount,
                 claudeOAuthHistoryOwnerIdentifier: effectiveOwner,
+                claudeOAuthSamples: samples,
                 isClaudeOAuthSample: isClaudeOAuthSample,
                 shouldUpdatePreferredAccountKey: shouldUpdatePreferredAccountKey,
                 shouldAdoptUnscopedHistory: shouldAdoptUnscopedHistory,
@@ -1133,6 +1134,7 @@ extension UsageStore {
         snapshot: UsageSnapshot?,
         preferredAccount: ProviderTokenAccount?,
         claudeOAuthHistoryOwnerIdentifier: String? = nil,
+        claudeOAuthSamples: [PlanUtilizationSeriesSample] = [],
         isClaudeOAuthSample: Bool = false,
         shouldUpdatePreferredAccountKey: Bool = true,
         shouldAdoptUnscopedHistory: Bool = true,
@@ -1182,6 +1184,8 @@ extension UsageStore {
                                 histories: fragments + [providerBuckets.histories(for: oauthAccountKey)]),
                             for: oauthAccountKey)
                     }
+                    providerBuckets.adoptClaudeOAuthLegacyTail(
+                        into: oauthAccountKey, following: claudeOAuthSamples, bindings: bindings)
                 }
                 if shouldUpdatePreferredAccountKey, !readOnly { providerBuckets.preferredAccountKey = oauthAccountKey }
                 // Existing unscoped or identity-keyed history can belong to another OAuth account.
