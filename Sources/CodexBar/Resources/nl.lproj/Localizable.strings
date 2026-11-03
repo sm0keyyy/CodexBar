@@ -2803,3 +2803,6 @@
 "grouped_icons_tooltip_unpriced" = "unpriced";
 "grouped_icons_tooltip_budget" = "Budget %@";
 "grouped_icons_tooltip_more" = "+%d more";
+
+"pace_ahead_format" = "ahead +%.0f%%";
+"pace_behind_format" = "behind −%.0f%%";

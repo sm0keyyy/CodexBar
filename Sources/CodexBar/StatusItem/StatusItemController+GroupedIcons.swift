@@ -17,7 +17,7 @@ extension StatusItemController {
         }
     }
 
-    private var groupedProviders: [UsageProvider]? {
+    var groupedProviders: [UsageProvider]? {
         GroupedProviderIconPlan.tiles(
             enabled: self.settings.menuBarGroupsProviderIcons,
             shouldMergeIcons: self.shouldMergeIcons,
@@ -151,7 +151,7 @@ extension StatusItemController {
         return GroupedTileWarning.level(windows: windows)
     }
 
-    private func groupedCostInputs(now: Date) -> [GroupedDailyCost.ProviderCostInput] {
+    func groupedCostInputs(now: Date) -> [GroupedDailyCost.ProviderCostInput] {
         guard self.settings.costUsageEnabled else { return [] }
         return self.store.enabledFirstPartyProvidersForDisplay().compactMap { provider in
             guard !self.menuBarUsageSource(for: provider).isFleet else { return nil }
