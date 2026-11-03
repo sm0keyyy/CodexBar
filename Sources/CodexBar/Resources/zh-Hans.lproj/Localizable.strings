@@ -2856,3 +2856,4 @@
 "pace_history_point_format" = "%@: %.0f percent used";
 "pace_history_opus" = "Opus";
 "pace_estimated_cost_format" = "≈%@ (estimate)";
+"pace_weekly_cost_tokens_format" = "%1$@ · %2$@ tokens";

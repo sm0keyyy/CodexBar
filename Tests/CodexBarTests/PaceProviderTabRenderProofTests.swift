@@ -12,28 +12,14 @@ final class PaceProviderTabRenderProofTests: XCTestCase {
         }
         let directory = URL(fileURLWithPath: path, isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        var input = PaceProviderTabModelTests.fixture()
-        input.calendar = .current
+        let input = try self.populatedInput()
         for block in PacePanelModel.make(input).providers {
-            input.histories[block.provider] = input.histories[block.provider]?.map { history in
-                guard let row = block.windows.first(where: { $0.series == history.name }),
-                      let pace = row.pace else { return history }
-                let reset = input.now.addingTimeInterval(
-                    Double(pace.durationMinutes) * 60 * (1 - pace.fractionElapsed))
-                return PlanUtilizationSeriesHistory(
-                    name: history.name,
-                    windowMinutes: history.windowMinutes,
-                    entries: history.entries + [.init(
-                        capturedAt: input.now, usedPercent: 100 - row.fillPercent, resetsAt: reset)])
-            }
+            let model = PaceProviderTabModel.make(block: block, input: input, context: nil)
+            XCTAssertTrue(model.burndowns.allSatisfy { $0.samples.count >= 7 })
+            XCTAssertEqual(model.histories.count, block.windows.count)
+            XCTAssertTrue(model.histories.allSatisfy { $0.chart.points.filter(\.isObserved).count >= 6 })
+            XCTAssertEqual(model.daily.compactMap(\.totalUSD).count, 30)
         }
-        input.tokenSnapshots[.grok] = PaceProviderTabModelTests.costSnapshot(now: input.now, daily: [
-            PaceProviderTabModelTests.entry(date: "2026-11-01", cost: 4),
-            PaceProviderTabModelTests.entry(date: "2026-11-02", cost: 7.96, models: [
-                .init(modelName: "grok-4-0709", costUSD: 7.96),
-                .init(modelName: "fixture-unknown", costUSD: nil),
-            ]),
-        ])
         for (provider, dark) in [
             (UsageProvider.claude, true),
             (.claude, false),
@@ -42,6 +28,73 @@ final class PaceProviderTabRenderProofTests: XCTestCase {
             (.codex, true),
         ] {
             try self.render(provider: provider, dark: dark, input: input, directory: directory)
+        }
+    }
+
+    private func populatedInput() throws -> PacePanelInput {
+        var input = PaceProviderTabModelTests.fixture()
+        input.calendar = .current
+        for block in PacePanelModel.make(input).providers {
+            input.histories[block.provider] = try block.windows.map {
+                try self.history(row: $0, now: input.now)
+            }
+            input.tokenSnapshots[block.provider] = try PaceProviderTabModelTests.costSnapshot(
+                now: input.now,
+                daily: self.dailyCosts(block: block, input: input))
+        }
+        return input
+    }
+
+    private func history(row: PaceWindowRow, now: Date) throws -> PlanUtilizationSeriesHistory {
+        let pace = try XCTUnwrap(row.pace)
+        let name = try XCTUnwrap(row.series)
+        let duration = Double(pace.durationMinutes) * 60
+        let reset = Date(timeIntervalSince1970:
+            (now.timeIntervalSince1970 + duration * (1 - pace.fractionElapsed)).rounded())
+        let start = reset.addingTimeInterval(-duration)
+        let used = 100 - row.fillPercent
+        var entries = [0.03, 0.15, 0.30, 0.5, 0.7, 0.85, 1].map { progress in
+            PlanUtilizationHistoryEntry(
+                capturedAt: progress == 1 ? now
+                    : start.addingTimeInterval(duration * pace.fractionElapsed * progress),
+                usedPercent: used * progress * progress,
+                resetsAt: reset)
+        }
+        for (index, peak) in [76.0, 52, 88, 41, 64].enumerated() {
+            entries.append(.init(
+                capturedAt: now.addingTimeInterval(-duration * Double(index + 1)),
+                usedPercent: peak,
+                resetsAt: reset.addingTimeInterval(-duration * Double(index + 1))))
+        }
+        return PlanUtilizationSeriesHistory(
+            name: name,
+            windowMinutes: pace.durationMinutes,
+            entries: entries.sorted { $0.capturedAt < $1.capturedAt })
+    }
+
+    private func dailyCosts(block: PaceProviderBlock, input: PacePanelInput) throws -> [CostUsageDailyReport.Entry] {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = input.calendar
+        formatter.timeZone = input.calendar.timeZone
+        formatter.dateFormat = "yyyy-MM-dd"
+        let today = input.calendar.startOfDay(for: input.now)
+        let todayCost = try XCTUnwrap(block.today.usd)
+        let topModel = block.provider == .grok ? "grok-4-0709"
+            : (block.provider == .claude ? "claude-opus-4-1" : "gpt-5")
+        let names = [topModel, "fixture-model-b", "fixture-model-c", "fixture-model-d"]
+        let weights = [0.6, 0.25, 0.1, 0.05]
+        let multiplier = block.provider == .grok ? 0.22 : (block.provider == .claude ? 2.2 : 1.2)
+        return try (0..<30).map { index in
+            let date = try XCTUnwrap(input.calendar.date(byAdding: .day, value: index - 29, to: today))
+            let cost = index == 29 ? todayCost : Double((index * 7) % 23 + 4) * multiplier
+            var models = zip(names, weights).map {
+                CostUsageDailyReport.ModelBreakdown(modelName: $0, costUSD: cost * $1)
+            }
+            if block.provider == .grok, index == 29 {
+                models.append(.init(modelName: "fixture-unknown", costUSD: nil))
+            }
+            return PaceProviderTabModelTests.entry(date: formatter.string(from: date), cost: cost, models: models)
         }
     }
 

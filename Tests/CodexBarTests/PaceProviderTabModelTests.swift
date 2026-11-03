@@ -138,7 +138,7 @@ struct PaceProviderTabModelTests {
     @Test func `weekly quota cost follows the current reset and missing snapshots stay empty`() throws {
         let input = Self.fixture()
         let claude = try self.model(.claude, input: input)
-        #expect(claude.quotaWeek?.value == "$85.11 · 4K")
+        #expect(claude.quotaWeek?.value == "$85.11 · 4K tokens")
         #expect(try self.model(.grok, input: input).quotaWeek == nil)
         var empty = input
         empty.snapshots[.grok] = nil
@@ -168,6 +168,19 @@ struct PaceProviderTabModelTests {
             input.todayCostInputs = [.init(name: "Grok", value: value)]
             #expect(try self.model(.grok, input: input).today == expected)
         }
+    }
+
+    @Test func `thirty-day cost axes show localized month and day without changing weekly axes`() throws {
+        let input = Self.fixture()
+        let model = try self.model(.claude, input: input)
+        let chart = PaceDailyBars(days: model.daily, providers: [.claude])
+        let first = try #require(model.daily.first?.date)
+        let last = try #require(model.daily.last?.date)
+        #expect(chart.axisLabel(for: first).contains("Oct"))
+        #expect(chart.axisLabel(for: last).contains("Nov"))
+        let weekly = PaceDailyBars(days: Array(model.daily.suffix(7)), providers: [.claude])
+        #expect(!weekly.axisLabel(for: first).contains("Oct"))
+        #expect(!weekly.axisLabel(for: last).contains("Nov"))
     }
 
     private func model(
