@@ -29,12 +29,13 @@ struct GrokSessionCostTests {
     }
 
     private func scan(_ log: String = "", sessions: [GrokSessionCost.Session] = []) -> GrokDayCost {
-        GrokSessionCost.today(
+        GrokSessionCost.daily(
             unifiedLog: log,
             sessions: sessions,
             now: self.now,
             calendar: self.calendar,
-            pricing: .init(catalog: nil))
+            days: 1,
+            pricing: .init(catalog: nil)).values.first ?? GrokDayCost()
     }
 
     private func session(
@@ -47,7 +48,8 @@ struct GrokSessionCostTests {
             id: id,
             summary: "{\"info\":{\"id\":\"\(id)\"},\"updated_at\":\"\(date)\",\"current_model_id\":\"\(model)\"}",
             signals: "{}",
-            updates: updates)
+            updates: updates,
+            pricing: .init(catalog: nil))
     }
 
     private func completed(
