@@ -2871,11 +2871,14 @@
 "pace_weekly_cost_tokens_format" = "%1$@ · %2$@ رموز";
 "pace_partly_unpriced" = "بلا تسعير جزئيًا";
 
-"pace_state_critical_format" = "%@: بلغت الحصة المتبقية أدنى حد للتحذير";
-"pace_state_no_data_format" = "%@: بيانات الاستخدام غير متاحة";
-"pace_state_provider_down_format" = "%@: أبلغ المزود عن مشكلة في الخدمة";
-"pace_state_refresh_failed_format" = "%@: تعذر تحديث الاستخدام";
-"pace_state_refreshing_format" = "%@: جارٍ تحديث بيانات الاستخدام";
-"pace_state_stale_format" = "%@: تعذر التحديث؛ آخر بيانات منذ %@";
-"pace_state_warning_format" = "%@: بلغت الحصة المتبقية حد التحذير";
+"pace_state_no_data_format" = "%@: لا توجد بيانات استخدام؛ 0 فترات مقاسة";
+"pace_state_provider_down_format" = "%@: أبلغ المزود عن مشكلة في الخدمة؛ %@";
+"pace_state_refresh_failed_format" = "%@: تعذر التحديث؛ %@";
+"pace_state_refreshing_format" = "%@: جارٍ التحديث؛ %@";
+"pace_state_warning_format" = "%@: المتبقي في %@ هو %.0f%%، متأخر عن الوتيرة بمقدار %@؛ مستوى التحذير %d%%";
 "pace_open_settings" = "فتح الإعدادات";
+"pace_state_capture_age_format" = "تُعرض بيانات منذ %@";
+"pace_state_capture_unknown" = "وقت الالتقاط غير متاح";
+"pace_state_error_format" = "%@: %@; %@";
+"pace_state_low_format" = "%@: المتبقي في %@ هو %.0f%%، عند مستوى التحذير %d%% أو أدنى";
+"pace_state_no_usage_shown" = "لا تُعرض بيانات استخدام";

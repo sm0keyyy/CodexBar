@@ -2868,11 +2868,14 @@
 "pace_weekly_cost_tokens_format" = "%1$@ · %2$@ токенів";
 "pace_partly_unpriced" = "частково без ціни";
 
-"pace_state_critical_format" = "%@: залишок квоти досяг найнижчого порогу попередження";
-"pace_state_no_data_format" = "%@: дані про використання недоступні";
-"pace_state_provider_down_format" = "%@: постачальник повідомляє про збій сервісу";
-"pace_state_refresh_failed_format" = "%@: не вдалося оновити дані про використання";
-"pace_state_refreshing_format" = "%@: оновлення даних про використання";
-"pace_state_stale_format" = "%@: оновлення не вдалося; останні дані отримано %@ тому";
-"pace_state_warning_format" = "%@: залишок квоти досяг порогу попередження";
+"pace_state_no_data_format" = "%@: немає даних про використання; виміряно 0 вікон";
+"pace_state_provider_down_format" = "%@: постачальник повідомляє про збій сервісу; %@";
+"pace_state_refresh_failed_format" = "%@: не вдалося оновити; %@";
+"pace_state_refreshing_format" = "%@: оновлення; %@";
+"pace_state_warning_format" = "%@: у %@ залишилося %.0f%%, відставання від темпу на %@; поріг попередження %d%%";
 "pace_open_settings" = "Відкрити налаштування";
+"pace_state_capture_age_format" = "показано дані, отримані %@ тому";
+"pace_state_capture_unknown" = "час збору даних недоступний";
+"pace_state_error_format" = "%@: %@; %@";
+"pace_state_low_format" = "%@: у %@ залишилося %.0f%%, на рівні вашого порогу %d%% або нижче";
+"pace_state_no_usage_shown" = "дані про використання не показано";

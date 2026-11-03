@@ -180,7 +180,7 @@ struct GroupedProviderIconStatusItemTests {
         settings.setQuotaWarningThresholds(.session, thresholds: [50, 20])
         settings.quotaWarningNotificationsEnabled = false
         store._setSnapshotForTesting(self.snapshot(used: 85), provider: .claude)
-        #expect(controller.groupedWarning(provider: .claude) == .red)
+        #expect(controller.groupedWarning(provider: .claude) == .amber)
         #expect(controller.groupedWarning(provider: .codex) == .none)
         controller.applyIcon(phase: nil)
         #expect(button.image?.isTemplate == false)
@@ -198,7 +198,7 @@ struct GroupedProviderIconStatusItemTests {
             primary: RateWindow(usedPercent: 0, windowMinutes: 300, resetsAt: nil, resetDescription: nil),
             secondary: RateWindow(usedPercent: 90, windowMinutes: 10080, resetsAt: nil, resetDescription: nil),
             updatedAt: Date()), provider: .claude)
-        #expect(controller.groupedWarning(provider: .claude) == .red)
+        #expect(controller.groupedWarning(provider: .claude) == .amber)
         store._setSnapshotForTesting(self.snapshot(used: 85, synthetic: true), provider: .claude)
         #expect(controller.groupedWarning(provider: .claude) == .none)
         store._setSnapshotForTesting(self.snapshot(used: 85, minutes: 10080), provider: .claude)
@@ -221,10 +221,10 @@ struct GroupedProviderIconStatusItemTests {
                 NamedRateWindow(id: "long", title: "Monthly", window: window(95, 43200)),
             ],
             updatedAt: Date()), provider: .claude)
-        #expect(controller.groupedWarning(provider: .claude) == .red)
+        #expect(controller.groupedWarning(provider: .claude) == .amber)
         store._setSnapshotForTesting(UsageSnapshot(
             primary: window(85, 10080), secondary: nil, updatedAt: Date()), provider: .grok)
-        #expect(controller.groupedWarning(provider: .grok) == .red)
+        #expect(controller.groupedWarning(provider: .grok) == .amber)
         store._setSnapshotForTesting(UsageSnapshot(
             primary: RateWindow(
                 usedPercent: 85,
@@ -233,49 +233,62 @@ struct GroupedProviderIconStatusItemTests {
                 resetDescription: nil),
             secondary: nil,
             updatedAt: Date()), provider: .grok)
-        #expect(controller.groupedWarning(provider: .grok) == .red)
+        #expect(controller.groupedWarning(provider: .grok) == .amber)
         settings.setQuotaWarningWindowEnabled(.weekly, enabled: false)
         #expect(controller.groupedWarning(provider: .grok) == .none)
         #expect(controller.groupedWarning(provider: .claude) == .none)
     }
 
-    @Test func `Codex weekly 37 percent remaining explains its configured amber outline`() throws {
+    @Test(arguments: [(37.0, 20.0, false), (37.0, 46.0, true), (15.0, 5.0, true)])
+    func `pace aware Codex warning agrees across pill tooltip and strip`(
+        remaining: Double, ideal: Double, warns: Bool) throws
+    {
         let (settings, store, controller) = self.harness()
         defer { controller.releaseStatusItemsForTesting() }
-        settings.setQuotaWarningWindowEnabled(.weekly, enabled: true)
-        settings.setQuotaWarningThresholds(.weekly, thresholds: [50, 20])
+        let now = Date()
         store._setSnapshotForTesting(UsageSnapshot(
             primary: nil,
             secondary: RateWindow(
-                usedPercent: 63, windowMinutes: 10080, resetsAt: nil, resetDescription: nil),
-            updatedAt: Date()), provider: .codex)
-        #expect(controller.groupedWarning(provider: .codex) == .amber)
-        let expected = "Codex: remaining quota reached a warning threshold"
-        #expect(controller.groupedTooltip(now: Date())?.contains(expected) == true)
-        let input = controller.makePacePanelInput(now: Date())
-        #expect(try #require(PacePanelModel.make(input).providers.first).stateExplanation == expected)
-        settings.setQuotaWarningWindowEnabled(.weekly, enabled: false)
-        #expect(controller.groupedWarning(provider: .codex) == .none)
-        #expect(controller.groupedTooltip(now: Date())?.contains(expected) == false)
-        #expect(PacePanelModel.make(controller.makePacePanelInput(now: Date()))
-            .providers.first?.stateExplanation == nil)
+                usedPercent: 100 - remaining,
+                windowMinutes: 10080,
+                resetsAt: now.addingTimeInterval(604_800 * ideal / 100),
+                resetDescription: nil),
+            updatedAt: now), provider: .codex)
+        let button = try #require(controller.statusItem.button)
+        let normal = try self.pixels(controller.groupedTileImage(provider: .codex, button: button))
+        settings.setQuotaWarningWindowEnabled(.weekly, enabled: true)
+        settings.setQuotaWarningThresholds(.weekly, thresholds: [50, 20])
+        let state = controller.groupedPillState(provider: .codex, now: now)
+        #expect(state.outlineWarning == (warns ? .amber : .none))
+        #expect(controller.groupedWarning(provider: .codex, now: now) == (warns ? .amber : .none))
+        #expect(try (self.pixels(controller.groupedTileImage(provider: .codex, button: button)) != normal) == warns)
+        let input = controller.makePacePanelInput(now: now)
+        let model = PacePanelModel.make(input)
+        #expect(model.warnings.count == (warns ? 1 : 0))
+        let expected: String? = !warns ? nil : (remaining == 37
+            ? "Codex: Weekly has 37% left, behind pace by 9%; warning level 50%"
+            : "Codex: Weekly has 15% left, at or below your 20% warning level")
+        #expect(model.providers.first?.stateExplanation == expected)
+        if let expected { #expect(controller.groupedTooltip(now: now)?.contains(expected) == true) }
+        else { #expect(controller.groupedTooltip(now: now)?.contains("warning level") == false) }
     }
 
     @Test func `provider failures share the red cue and clear without a dismissed warning`() throws {
         let (_, store, controller) = self.harness()
         defer { controller.releaseStatusItemsForTesting() }
+        let now = Date()
         store.errors[.grok] = "Rate limited; retry later"
-        let state = controller.groupedPillState(provider: .grok)
+        let state = controller.groupedPillState(provider: .grok, now: now)
         #expect(state.outlineWarning == .red)
-        let expected = "Grok: Rate limited; retry later"
-        #expect(controller.groupedTooltip(now: Date())?.contains(expected) == true)
-        let warning = try #require(PacePanelModel.make(controller.makePacePanelInput(now: Date())).warnings.first)
+        let expected = "Grok: Rate limited; retry later; showing data from 0m ago"
+        #expect(controller.groupedTooltip(now: now)?.contains(expected) == true)
+        let warning = try #require(PacePanelModel.make(controller.makePacePanelInput(now: now)).warnings.first)
         #expect(warning.provider == .grok)
         #expect(warning.stateReason?.text == expected)
         #expect(warning.stateReason?.cue == .error)
         #expect(warning.stateReason?.fix == .retry)
         store.errors[.grok] = nil
-        #expect(PacePanelModel.make(controller.makePacePanelInput(now: Date())).warnings.isEmpty)
+        #expect(PacePanelModel.make(controller.makePacePanelInput(now: now)).warnings.isEmpty)
     }
 
     @Test func `strip retry uses only the selected provider manual refresh path`() async throws {

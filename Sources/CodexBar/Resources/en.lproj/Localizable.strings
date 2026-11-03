@@ -2872,11 +2872,14 @@
 "pace_weekly_cost_tokens_format" = "%1$@ · %2$@ tokens";
 "pace_partly_unpriced" = "partly unpriced";
 
-"pace_state_critical_format" = "%@: remaining quota reached the lowest warning threshold";
-"pace_state_no_data_format" = "%@: usage data is unavailable";
-"pace_state_provider_down_format" = "%@: provider reports a service problem";
-"pace_state_refresh_failed_format" = "%@: usage refresh failed";
-"pace_state_refreshing_format" = "%@: refreshing usage data";
-"pace_state_stale_format" = "%@: usage refresh failed; last data %@ ago";
-"pace_state_warning_format" = "%@: remaining quota reached a warning threshold";
+"pace_state_no_data_format" = "%@: no usage data; 0 measured windows";
+"pace_state_provider_down_format" = "%@: provider reports a service problem; %@";
+"pace_state_refresh_failed_format" = "%@: couldn't refresh; %@";
+"pace_state_refreshing_format" = "%@: refreshing; %@";
+"pace_state_warning_format" = "%@: %@ has %.0f%% left, behind pace by %@; warning level %d%%";
 "pace_open_settings" = "Open Settings";
+"pace_state_capture_age_format" = "showing data from %@ ago";
+"pace_state_capture_unknown" = "capture time unavailable";
+"pace_state_error_format" = "%@: %@; %@";
+"pace_state_low_format" = "%@: %@ has %.0f%% left, at or below your %d%% warning level";
+"pace_state_no_usage_shown" = "no usage data shown";

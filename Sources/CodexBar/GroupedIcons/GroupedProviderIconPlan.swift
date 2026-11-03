@@ -48,14 +48,36 @@ enum GroupedTileWarning {
         static func < (lhs: Self, rhs: Self) -> Bool { lhs.rawValue < rhs.rawValue }
     }
 
-    static func level(windows: [(remainingPercent: Double, thresholds: [Int])]) -> Level {
-        windows.reduce(.none) { worst, window in
-            let active = QuotaWarningThresholds.active(window.thresholds)
-            guard let low = active.min(), let high = active.max() else { return worst }
-            let level: Level = window.remainingPercent <= Double(low) ? .red
-                : window.remainingPercent <= Double(high) ? .amber : .none
-            return max(worst, level)
+    struct Detail: Equatable {
+        enum Cause: Equatable {
+            case low
+            case behind(Double)
         }
+
+        let remainingPercent: Double
+        let threshold: Int
+        let windowLabel: String
+        let cause: Cause
+    }
+
+    static func make(
+        window: RateWindow, provider: UsageProvider, thresholds: [Int], label: String, now: Date) -> Detail?
+    {
+        guard !window.isSyntheticPlaceholder, window.usedPercent.isFinite else { return nil }
+        let active = QuotaWarningThresholds.active(thresholds)
+        guard let low = active.min(), let high = active.max() else { return nil }
+        if window.remainingPercent <= Double(low) {
+            return Detail(
+                remainingPercent: window.remainingPercent, threshold: low, windowLabel: label, cause: .low)
+        }
+        guard window.remainingPercent <= Double(high),
+              let pace = WindowPace.make(window: window, provider: provider, now: now),
+              pace.reservePercent < 0 else { return nil }
+        return Detail(
+            remainingPercent: window.remainingPercent,
+            threshold: high,
+            windowLabel: label,
+            cause: .behind(-pace.reservePercent))
     }
 }
 
@@ -63,7 +85,7 @@ struct GroupedPillState: Equatable {
     var hasData = false
     var stale = false
     var refreshing = false
-    var warning: GroupedTileWarning.Level = .none
+    var warning: GroupedTileWarning.Detail?
     var flash = false
     var updatedAt: Date?
     var failure: String?
@@ -93,45 +115,69 @@ struct GroupedPillState: Equatable {
 
     var outlineWarning: GroupedTileWarning.Level {
         self.failure != nil || (self.providerStatus != .none && self.providerStatus != .unknown)
-            ? .red : self.warning
+            ? .red : (self.warning == nil ? .none : .amber)
+    }
+
+    private func captureDescription(now: Date) -> String {
+        guard self.hasData else { return L("pace_state_no_usage_shown") }
+        guard let updatedAt else { return L("pace_state_capture_unknown") }
+        let duration = UsageFormatter.resetCountdownDuration(from: now, now: min(now, updatedAt))
+        return L("pace_state_capture_age_format", duration == "now" ? L("%@m", "0") : duration)
     }
 
     func reason(provider: UsageProvider, now: Date) -> Reason? {
         let name = L(ProviderDescriptorRegistry.descriptor(for: provider).metadata.displayName)
         if let failure {
             return Reason(
-                text: L("pace_tooltip_unknown_format", name, failure), cue: .error, fix: .retry, dashed: self.flash)
+                text: L("pace_state_error_format", name, failure, self.captureDescription(now: now)),
+                cue: .error,
+                fix: .retry,
+                dashed: self.flash)
         }
         if self.providerStatus != .none, self.providerStatus != .unknown {
             return Reason(
-                text: L("pace_state_provider_down_format", name), cue: .error, fix: .retry, dashed: self.flash)
+                text: L("pace_state_provider_down_format", name, self.captureDescription(now: now)),
+                cue: .error,
+                fix: .retry,
+                dashed: self.flash)
         }
         if !self.hasData {
             return Reason(text: L("pace_state_no_data_format", name), cue: .noData, fix: .settings)
         }
-        switch self.warning {
-        case .amber:
-            return Reason(
-                text: L("pace_state_warning_format", name), cue: .warning, fix: nil, dashed: self.flash)
-        case .red:
-            return Reason(
-                text: L("pace_state_critical_format", name), cue: .error, fix: nil, dashed: self.flash)
-        case .none: break
-        }
-        if self.flash {
-            return Reason(text: L("pace_state_warning_format", name), cue: .warning, fix: nil, dashed: true)
+        if let warning {
+            let text = switch warning.cause {
+            case .low:
+                L(
+                    "pace_state_low_format",
+                    name,
+                    L(warning.windowLabel),
+                    warning.remainingPercent,
+                    warning.threshold)
+            case let .behind(deficit):
+                L(
+                    "pace_state_warning_format",
+                    name,
+                    L(warning.windowLabel),
+                    warning.remainingPercent,
+                    (deficit / 100).formatted(.percent.precision(.significantDigits(1...3))
+                        .locale(codexBarLocalizedLocale())),
+                    warning.threshold)
+            }
+            return Reason(text: text, cue: .warning, fix: nil, dashed: self.flash)
         }
         if self.stale {
-            let text = self.updatedAt.map {
-                L(
-                    "pace_state_stale_format",
-                    name,
-                    UsageFormatter.resetCountdownDuration(from: now, now: min(now, $0)))
-            } ?? L("pace_state_refresh_failed_format", name)
-            return Reason(text: text, cue: .stale, fix: .retry, dashed: true)
+            return Reason(
+                text: L("pace_state_refresh_failed_format", name, self.captureDescription(now: now)),
+                cue: .stale,
+                fix: .retry,
+                dashed: true)
         }
         if self.refreshing {
-            return Reason(text: L("pace_state_refreshing_format", name), cue: .refreshing, fix: nil, dashed: true)
+            return Reason(
+                text: L("pace_state_refreshing_format", name, self.captureDescription(now: now)),
+                cue: .refreshing,
+                fix: nil,
+                dashed: true)
         }
         return nil
     }

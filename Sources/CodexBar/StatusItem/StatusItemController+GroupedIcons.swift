@@ -123,20 +123,21 @@ extension StatusItemController {
         return GroupedTile(
             provider: provider,
             quota: quota,
-            state: self.groupedPillState(provider: provider),
+            state: self.groupedPillState(provider: provider, now: now),
             tint: tint,
             primaryTick: tick(quota.shortest),
             secondaryTick: tick(quota.longest))
     }
 
-    func groupedPillState(provider: UsageProvider) -> GroupedPillState {
+    func groupedPillState(provider: UsageProvider, now: Date = Date()) -> GroupedPillState {
         let snapshot = self.menuBarUsageSource(for: provider).snapshot
+        let warning = self.groupedWarningDetail(provider: provider, now: now)
         return GroupedPillState(
             hasData: GroupedProviderIconPlan.quota(snapshot: snapshot).shortest != nil,
             stale: self.menuBarIsStale(for: provider),
             refreshing: self.isRefreshingLocalMenuBarUsage(provider),
-            warning: self.groupedWarning(provider: provider),
-            flash: self.quotaWarningFlashActive(provider: provider),
+            warning: warning,
+            flash: warning != nil && self.quotaWarningFlashActive(provider: provider),
             updatedAt: snapshot?.updatedAt,
             failure: self.store.errors[provider.instanceID].flatMap { _ in
                 self.store.userFacingErrorPresentation(for: provider)?.message
@@ -175,7 +176,7 @@ extension StatusItemController {
                 .init(
                     provider: $0,
                     snapshot: self.menuBarUsageSource(for: $0).snapshot,
-                    state: self.groupedPillState(provider: $0))
+                    state: self.groupedPillState(provider: $0, now: now))
             },
             showUsed: self.settings.usageBarsShowUsed,
             costs: self.groupedCostSummary(now: now),
@@ -183,28 +184,44 @@ extension StatusItemController {
             now: now)
     }
 
-    func groupedWarning(provider: UsageProvider) -> GroupedTileWarning.Level {
-        guard let snapshot = self.menuBarUsageSource(for: provider).snapshot else { return .none }
+    func groupedWarning(provider: UsageProvider, now: Date = Date()) -> GroupedTileWarning.Level {
+        self.groupedWarningDetail(provider: provider, now: now) == nil ? .none : .amber
+    }
+
+    private func groupedWarningDetail(provider: UsageProvider, now: Date) -> GroupedTileWarning.Detail? {
+        guard let snapshot = self.menuBarUsageSource(for: provider).snapshot else { return nil }
         let quota = GroupedProviderIconPlan.quota(snapshot: snapshot)
         let minutes = quota.shortest.flatMap {
-            WindowPace.durationMinutes(window: $0, provider: provider, now: Date())
+            WindowPace.durationMinutes(window: $0, provider: provider, now: now)
         }
         let weeklyOnly = quota.longest == nil && minutes.map {
             WindowPace(durationMinutes: $0, fractionElapsed: 0, remainingPercent: 0).windowClass == .weekly
         } == true
         let session = weeklyOnly ? nil : quota.shortest
         let weekly = weeklyOnly ? quota.shortest : quota.longest
-        var windows: [(remainingPercent: Double, thresholds: [Int])] = []
+        let descriptor = ProviderDescriptorRegistry.descriptor(for: provider)
+        let labels = descriptor.presentation.rateWindowLabels(
+            metadata: descriptor.metadata, snapshot: snapshot, now: now)
+        var warning: GroupedTileWarning.Detail?
         for (kind, window) in [(QuotaWarningWindow.session, session), (.weekly, weekly)] {
             guard self.settings.quotaWarningEnabled(provider: provider, window: kind),
                   let window, !window.isSyntheticPlaceholder else { continue }
             // Provider-specific by design: Claude's short lane must represent a session to warn as one.
             if provider == .claude, kind == .session, !UsageStore.isSessionWindow(window) { continue }
-            windows.append((
-                window.remainingPercent,
-                self.settings.resolvedQuotaWarningThresholds(provider: provider.instanceID, window: kind)))
+            let label = window.title
+                ?? snapshot.extraRateWindows?.first(where: { $0.window == window })?.title
+                ?? (window == snapshot.primary ? labels.primary : labels.secondary)
+            guard let candidate = GroupedTileWarning.make(
+                window: window,
+                provider: provider,
+                thresholds: self.settings.resolvedQuotaWarningThresholds(provider: provider.instanceID, window: kind),
+                label: label,
+                now: now) else { continue }
+            if warning.map({ candidate.remainingPercent < $0.remainingPercent }) ?? true {
+                warning = candidate
+            }
         }
-        return GroupedTileWarning.level(windows: windows)
+        return warning
     }
 
     func groupedCostInputs(now: Date) -> [GroupedDailyCost.ProviderCostInput] {

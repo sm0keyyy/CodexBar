@@ -26,7 +26,7 @@ Tests require absolute CIELAB lightness separation of at least 20 and CIEDE2000 
 They check Aqua and Dark Aqua appearances and require both fill-to-track CIEDE2000 distances to be at least 15.
 Stale, refreshing, highlighted, inactive-display, and quota-warning states never replace or fade either fill.
 Stale and refresh-with-data states use a dashed outline. No data uses a solid outline without a fill or tick.
-Warnings color the outline amber or red and flash its stroke, not the usage pixels.
+Quota warnings color the outline amber; errors use red. A warning flash changes the stroke, not the usage pixels.
 Every pill remains non-template and its interior pixels remain opaque, including on inactive displays.
 The 111-provider palette run checks both appearances (222 measurements).
 Its minimum absolute ΔL* is 20.9828, minimum fill ΔE2000 is 23.0995, and minimum fill-to-track ΔE2000 is 21.0304.
@@ -128,7 +128,7 @@ A missing reset, unresolved duration, synthetic placeholder, or time outside the
 |---|---|---|
 |Normal|Usage fill and ideal tick|0.5 pt solid|
 |Refresh with data or stale|Full-opacity fill and tick|0.5 pt dashed|
-|Quota warning|Full-opacity fill and tick|1 pt amber or red, with the existing warning flash|
+|Quota warning|Full-opacity fill and tick|1 pt amber, with the existing warning flash|
 |No data|No usage fill or tick|0.5 pt solid|
 |Over budget|Same fill and tick, orange cost text|Unchanged|
 |High contrast|Text only, no tick|None|
@@ -147,8 +147,11 @@ The Today line has exact total and provider amounts. Budget, unpriced, and overf
 Each state outline has one shared reason in the tooltip, the Overview warning strip, and the provider header.
 The strip sits above the chart, takes no space without problems, and has no dismiss control.
 Provider dots identify each row. At most one Retry or Open Settings button uses existing provider-scoped actions.
-Amber means remaining quota reached an enabled warning threshold; red means it reached the lowest threshold or an error occurred.
-These warnings use remaining quota, not pace, and follow the configured session and weekly thresholds.
+Amber marks quota at or below the lower configured threshold, or at or below the upper threshold while behind pace.
+Quota warnings stay amber even at the lower threshold; red is reserved for errors.
+Without valid pace metadata, only the lower threshold can warn. Both levels use the user's configured values.
+Reasons name the window, remaining percentage, triggering threshold, and the pace deficit where relevant.
+Refresh and error reasons state the age of retained data, or explicitly say no usage data or capture time is available.
 Overview bars repeat amber, red, and dashed state cues. A normal outline adds no state message.
 Errors retain existing provider-facing sign-in, Keychain, and rate-limit messages instead of guessing authentication from text.
 Provider service incidents also appear. Refreshes, stale captures, and unavailable usage each have a plain reason.

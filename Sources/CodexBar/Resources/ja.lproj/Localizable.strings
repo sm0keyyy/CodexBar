@@ -2867,11 +2867,14 @@
 "pace_weekly_cost_tokens_format" = "%1$@ · %2$@トークン";
 "pace_partly_unpriced" = "一部の価格が未設定";
 
-"pace_state_critical_format" = "%@: 残りの使用枠が最も低い警告しきい値に達しました";
-"pace_state_no_data_format" = "%@: 使用量データを取得できません";
-"pace_state_provider_down_format" = "%@: プロバイダーがサービスの問題を報告しています";
-"pace_state_refresh_failed_format" = "%@: 使用量の更新に失敗しました";
-"pace_state_refreshing_format" = "%@: 使用量データを更新中";
-"pace_state_stale_format" = "%@: 更新に失敗しました。最後のデータは%@前です";
-"pace_state_warning_format" = "%@: 残りの使用枠が警告しきい値に達しました";
+"pace_state_no_data_format" = "%@: 使用量データなし。計測済みの期間は0件です";
+"pace_state_provider_down_format" = "%@: プロバイダーがサービスの問題を報告。%@";
+"pace_state_refresh_failed_format" = "%@: 更新できませんでした。%@";
+"pace_state_refreshing_format" = "%@: 更新中。%@";
+"pace_state_warning_format" = "%@: %@の残りは%.0f%%で、理想のペースより%@不足しています。警告しきい値%d%%";
 "pace_open_settings" = "設定を開く";
+"pace_state_capture_age_format" = "%@前のデータを表示中";
+"pace_state_capture_unknown" = "取得時刻が不明です";
+"pace_state_error_format" = "%@: %@; %@";
+"pace_state_low_format" = "%@: %@の残りは%.0f%%で、警告しきい値の%d%%以下です";
+"pace_state_no_usage_shown" = "使用量データは表示されていません";

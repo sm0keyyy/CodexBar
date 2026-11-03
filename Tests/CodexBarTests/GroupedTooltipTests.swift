@@ -77,22 +77,39 @@ struct GroupedTooltipTests {
     }
 
     @Test(arguments: [
-        (GroupedPillState(), "Codex: usage data is unavailable"),
-        (.init(hasData: true, refreshing: true), "Codex: refreshing usage data"),
-        (.init(hasData: true, warning: .amber), "Codex: remaining quota reached a warning threshold"),
-        (.init(hasData: true, warning: .red), "Codex: remaining quota reached the lowest warning threshold"),
-        (.init(hasData: true, flash: true), "Codex: remaining quota reached a warning threshold"),
-        (.init(hasData: true, stale: true), "Codex: usage refresh failed"),
+        (GroupedPillState(), "Codex: no usage data; 0 measured windows"),
+        (
+            .init(hasData: true, refreshing: true),
+            "Codex: refreshing; capture time unavailable"),
+        (
+            .init(
+                hasData: true,
+                warning: .init(remainingPercent: 37, threshold: 50, windowLabel: "Weekly", cause: .behind(9))),
+            "Codex: Weekly has 37% left, behind pace by 9%; warning level 50%"),
+        (
+            .init(
+                hasData: true,
+                warning: .init(remainingPercent: 15, threshold: 20, windowLabel: "Weekly", cause: .low)),
+            "Codex: Weekly has 15% left, at or below your 20% warning level"),
+        (
+            .init(
+                hasData: true,
+                warning: .init(remainingPercent: 15, threshold: 20, windowLabel: "Weekly", cause: .low),
+                flash: true),
+            "Codex: Weekly has 15% left, at or below your 20% warning level"),
+        (.init(hasData: true, stale: true), "Codex: couldn't refresh; capture time unavailable"),
         (
             .init(
                 hasData: true,
                 stale: true,
                 updatedAt: Date(timeIntervalSince1970: 1_793_610_000)),
-            "Codex: usage refresh failed; last data 3h ago"),
-        (.init(failure: "Sign in required"), "Codex: Sign in required"),
-        (.init(failure: "Keychain access denied"), "Codex: Keychain access denied"),
-        (.init(failure: "Rate limited; retry later"), "Codex: Rate limited; retry later"),
-        (.init(hasData: true, providerStatus: .major), "Codex: provider reports a service problem"),
+            "Codex: couldn't refresh; showing data from 3h ago"),
+        (.init(failure: "Sign in required"), "Codex: Sign in required; no usage data shown"),
+        (.init(failure: "Keychain access denied"), "Codex: Keychain access denied; no usage data shown"),
+        (.init(failure: "Rate limited; retry later"), "Codex: Rate limited; retry later; no usage data shown"),
+        (
+            .init(hasData: true, providerStatus: .major),
+            "Codex: provider reports a service problem; capture time unavailable"),
     ])
     func `every pill state outline produces a strip row and matching tooltip and provider text`(
         state: GroupedPillState, expected: String) throws
@@ -118,9 +135,11 @@ struct GroupedTooltipTests {
 
     @Test func `warning explanation takes precedence over stale and refresh just like the outline`() {
         let state = GroupedPillState(
-            hasData: true, stale: true, refreshing: true, warning: .amber, flash: true, updatedAt: self.now)
+            hasData: true, stale: true, refreshing: true,
+            warning: .init(remainingPercent: 37, threshold: 50, windowLabel: "Weekly", cause: .behind(9)),
+            flash: true, updatedAt: self.now)
         #expect(state.explanation(provider: .codex, now: self.now)
-            == "Codex: remaining quota reached a warning threshold")
+            == "Codex: Weekly has 37% left, behind pace by 9%; warning level 50%")
         #expect(GroupedPillState(hasData: true).explanation(provider: .codex, now: self.now) == nil)
         let normal = PacePanelInput(
             providers: [.codex], pillStates: [.codex: .init(hasData: true)], now: self.now)

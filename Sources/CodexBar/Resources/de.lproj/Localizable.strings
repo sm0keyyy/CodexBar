@@ -2865,11 +2865,14 @@
 "pace_weekly_cost_tokens_format" = "%1$@ · %2$@ Token";
 "pace_partly_unpriced" = "teilweise ohne Preis";
 
-"pace_state_critical_format" = "%@: verbleibendes Kontingent hat die niedrigste Warnschwelle erreicht";
-"pace_state_no_data_format" = "%@: Nutzungsdaten sind nicht verfügbar";
-"pace_state_provider_down_format" = "%@: Anbieter meldet eine Dienststörung";
-"pace_state_refresh_failed_format" = "%@: Aktualisierung der Nutzung fehlgeschlagen";
-"pace_state_refreshing_format" = "%@: Nutzungsdaten werden aktualisiert";
-"pace_state_stale_format" = "%@: Aktualisierung fehlgeschlagen; letzte Daten vor %@";
-"pace_state_warning_format" = "%@: verbleibendes Kontingent hat eine Warnschwelle erreicht";
+"pace_state_no_data_format" = "%@: keine Nutzungsdaten; 0 gemessene Zeitfenster";
+"pace_state_provider_down_format" = "%@: Anbieter meldet eine Dienststörung; %@";
+"pace_state_refresh_failed_format" = "%@: Aktualisierung fehlgeschlagen; %@";
+"pace_state_refreshing_format" = "%@: wird aktualisiert; %@";
+"pace_state_warning_format" = "%@: %@ hat noch %.0f%%, %@ hinter dem Soll; Warnschwelle %d%%";
 "pace_open_settings" = "Einstellungen öffnen";
+"pace_state_capture_age_format" = "Daten von vor %@ werden angezeigt";
+"pace_state_capture_unknown" = "Erfassungszeit nicht verfügbar";
+"pace_state_error_format" = "%@: %@; %@";
+"pace_state_low_format" = "%@: %@ hat noch %.0f%%, auf oder unter Ihrer Warnschwelle von %d%%";
+"pace_state_no_usage_shown" = "keine Nutzungsdaten angezeigt";

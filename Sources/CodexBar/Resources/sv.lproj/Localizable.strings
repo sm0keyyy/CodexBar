@@ -2866,11 +2866,14 @@
 "pace_weekly_cost_tokens_format" = "%1$@ · %2$@ token";
 "pace_partly_unpriced" = "delvis utan pris";
 
-"pace_state_critical_format" = "%@: återstående kvot har nått den lägsta varningsgränsen";
-"pace_state_no_data_format" = "%@: användningsdata är inte tillgängliga";
-"pace_state_provider_down_format" = "%@: leverantören rapporterar ett driftproblem";
-"pace_state_refresh_failed_format" = "%@: uppdatering av användning misslyckades";
-"pace_state_refreshing_format" = "%@: uppdaterar användningsdata";
-"pace_state_stale_format" = "%@: uppdatering misslyckades; senaste data är %@ gamla";
-"pace_state_warning_format" = "%@: återstående kvot har nått en varningsgräns";
+"pace_state_no_data_format" = "%@: inga användningsdata; 0 uppmätta fönster";
+"pace_state_provider_down_format" = "%@: leverantören rapporterar ett driftproblem; %@";
+"pace_state_refresh_failed_format" = "%@: kunde inte uppdatera; %@";
+"pace_state_refreshing_format" = "%@: uppdaterar; %@";
+"pace_state_warning_format" = "%@: %@ har %.0f%% kvar, %@ efter planerad takt; varningsgräns %d%%";
 "pace_open_settings" = "Öppna inställningar";
+"pace_state_capture_age_format" = "visar data från %@ sedan";
+"pace_state_capture_unknown" = "tid för insamling saknas";
+"pace_state_error_format" = "%@: %@; %@";
+"pace_state_low_format" = "%@: %@ har %.0f%% kvar, vid eller under din varningsgräns på %d%%";
+"pace_state_no_usage_shown" = "inga användningsdata visas";
