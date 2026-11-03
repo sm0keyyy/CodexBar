@@ -2806,3 +2806,7 @@
 
 "pace_ahead_format" = "ahead +%.0f%%";
 "pace_behind_format" = "behind −%.0f%%";
+
+"pace_tooltip_window_format" = "%@ %@ %@";
+"pace_tooltip_resets_format" = "resets %@";
+"pace_tooltip_unknown_format" = "%@: %@";

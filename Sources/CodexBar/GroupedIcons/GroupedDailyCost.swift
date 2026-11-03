@@ -21,13 +21,44 @@ enum GroupedDailyCost {
         let value: Value
     }
 
-    struct Summary {
+    struct Summary: Equatable {
         let totalUSD: Double?
         let displayText: String?
         let lines: [String]
 
         func isOverBudget(_ budget: Double) -> Bool {
             budget > 0 && self.totalUSD.map { $0 > budget } == true
+        }
+    }
+
+    struct Slot {
+        private var day: Date?
+        private var providers: [String] = []
+        private var lastCompleteTotal: Double?
+
+        mutating func resolve(
+            inputs: [ProviderCostInput],
+            isReloading: Bool,
+            preferredCurrency: String,
+            now: Date,
+            calendar: Calendar = .current) -> (text: String?, totalUSD: Double?, dimmed: Bool)
+        {
+            let day = calendar.startOfDay(for: now)
+            let providers = inputs.map(\.name)
+            if self.day != day || self.providers != providers {
+                self.lastCompleteTotal = nil
+                self.day = day
+                self.providers = providers
+            }
+            let summary = GroupedDailyCost.summary(inputs: inputs, preferredCurrency: preferredCurrency)
+            let loading = isReloading || inputs.contains { $0.value == .loading }
+            if !loading, !inputs.isEmpty, inputs.allSatisfy({ $0.value.usd != nil }) {
+                self.lastCompleteTotal = summary.totalUSD
+            }
+            if loading, let total = self.lastCompleteTotal {
+                return (GroupedDailyCost.displayText(usd: total, preferredCurrency: preferredCurrency), total, true)
+            }
+            return (summary.displayText, summary.totalUSD, false)
         }
     }
 
@@ -54,8 +85,12 @@ enum GroupedDailyCost {
                 extra += models.map { L("grouped_icons_tooltip_no_price", input.name, $0) }
             }
         }
-        var lines = total.map { [L("grouped_icons_tooltip_today", format($0))] } ?? []
-        if !parts.isEmpty { lines.append(parts.joined(separator: " · ")) }
+        var lines: [String] = []
+        if let total {
+            lines.append(([L("grouped_icons_tooltip_today", format(total))] + parts).joined(separator: " · "))
+        } else if !parts.isEmpty {
+            lines.append(parts.joined(separator: " · "))
+        }
         lines += extra
         return Summary(
             totalUSD: total,

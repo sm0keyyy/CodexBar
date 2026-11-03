@@ -71,7 +71,10 @@ enum GroupedProviderIconComposer {
         stale: Bool,
         loading: Bool = false,
         warning: GroupedTileWarning.Level = .none,
-        flash: Bool = false) -> NSImage
+        flash: Bool = false,
+        primaryTick: Double? = nil,
+        secondaryTick: Double? = nil,
+        backingScale: CGFloat = 2) -> NSImage
     {
         let (session, weekly) = self.fillColors(for: color, split: secondary != nil)
         let track = self.trackColor(weekly: weekly, session: session)
@@ -104,16 +107,39 @@ enum GroupedProviderIconComposer {
                         height: halfHeight).fill()
                 }
             }
+            NSGraphicsContext.saveGraphicsState()
+            NSGraphicsContext.current?.shouldAntialias = false
+            NSColor.labelColor.setFill()
+            for (percent, lane) in [
+                (primary == nil ? nil : primaryTick, NSRect(
+                    x: rect.minX,
+                    y: secondary == nil ? rect.minY : rect.midY + 0.25,
+                    width: rect.width,
+                    height: secondary == nil ? rect.height : halfHeight)),
+                (secondary == nil ? nil : secondaryTick, NSRect(
+                    x: rect.minX, y: rect.minY, width: rect.width, height: halfHeight)),
+            ] {
+                guard let percent, let columns = Self.tickColumns(percent: percent, backingScale: backingScale)
+                else { continue }
+                NSRect(
+                    x: CGFloat(columns.lowerBound) / backingScale,
+                    y: lane.minY,
+                    width: CGFloat(columns.count) / backingScale,
+                    height: lane.height).fill()
+            }
+            NSGraphicsContext.restoreGraphicsState()
             let borderColor: NSColor = switch warning {
             case .none: weekly
             case .amber: .systemOrange
             case .red: .systemRed
             }
             borderColor.setStroke()
+            let thick = flash || (primary != nil && warning != .none)
+            let inset: CGFloat = thick && !flash ? 0.5 : 0.25
             let border = NSBezierPath(
-                roundedRect: rect.insetBy(dx: 0.25, dy: 0.25), xRadius: 4.75, yRadius: 4.75)
-            border.lineWidth = flash ? 1 : 0.5
-            if stale || loading || warning != .none {
+                roundedRect: rect.insetBy(dx: inset, dy: inset), xRadius: 5 - inset, yRadius: 5 - inset)
+            border.lineWidth = thick ? 1 : 0.5
+            if flash || (primary != nil && warning == .none && (stale || loading)) {
                 border.setLineDash([1, 1], count: 2, phase: flash ? 1 : 0)
             }
             border.stroke()
@@ -121,6 +147,18 @@ enum GroupedProviderIconComposer {
         }
         image.isTemplate = false
         return image
+    }
+
+    nonisolated static func tickColumns(percent: Double, backingScale: CGFloat) -> ClosedRange<Int>? {
+        guard percent.isFinite, backingScale.isFinite, backingScale > 0 else { return nil }
+        let x = 0.5 + 23 * min(100, max(0, percent)) / 100
+        if backingScale <= 1 {
+            let column = min(22, max(1, Int(floor(x))))
+            return column...column
+        }
+        let center = Int((x * backingScale).rounded())
+        let last = Int(23.5 * backingScale) - 1
+        return min(last, max(1, center - 1))...min(last, max(1, center))
     }
 
     static func fillColors(for color: NSColor, split: Bool = true) -> (session: NSColor, weekly: NSColor) {

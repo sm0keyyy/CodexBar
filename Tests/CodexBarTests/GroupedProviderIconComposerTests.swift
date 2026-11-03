@@ -335,4 +335,107 @@ struct GroupedProviderIconComposerTests {
             if let directory { try png.write(to: directory.appendingPathComponent("claude-\(name.rawValue).png")) }
         }
     }
+
+    @Test func `pace ticks occupy the exact F1 device columns in each fill mode`() throws {
+        let now = Date(timeIntervalSince1970: 1_793_620_800)
+        let appearance = try #require(NSAppearance(named: .darkAqua))
+        let color = NSColor.systemBlue
+        for ((provider, used, minutes, remaining), showUsed, scale, expected) in [
+            ((UsageProvider.codex, 54.0, 10080, 2888), false, 2.0, 13...14),
+            ((.claude, 6, 300, 228), false, 2, 35...36),
+            ((.claude, 42, 10080, 2640), false, 2, 12...13),
+            ((.grok, 5, nil, 7020), false, 2, 32...33),
+            ((.codex, 54, 10080, 2888), true, 2, 33...34),
+            ((.codex, 54, 10080, 2888), false, 1, 7...7),
+        ] as [((UsageProvider, Double, Int?, Int), Bool, CGFloat, ClosedRange<Int>)] {
+            let window = RateWindow(
+                usedPercent: used,
+                windowMinutes: minutes,
+                resetsAt: now.addingTimeInterval(Double(remaining) * 60),
+                resetDescription: nil)
+            let pace = try #require(WindowPace.make(window: window, provider: provider, now: now))
+            let percent = pace.tickPercent(showUsed: showUsed)
+            #expect(GroupedProviderIconComposer.tickColumns(percent: percent, backingScale: scale) == expected)
+            var ticked: NSBitmapImageRep?
+            var plain: NSBitmapImageRep?
+            appearance.performAsCurrentDrawingAppearance {
+                ticked = GroupedProviderIconComposer.rasterize(GroupedProviderIconComposer.pill(
+                    primary: showUsed ? used : 100 - used,
+                    secondary: nil,
+                    color: color,
+                    stale: false,
+                    primaryTick: percent,
+                    backingScale: scale))
+                plain = GroupedProviderIconComposer.rasterize(GroupedProviderIconComposer.pill(
+                    primary: showUsed ? used : 100 - used, secondary: nil, color: color, stale: false))
+            }
+            let actual = try #require(ticked), baseline = try #require(plain)
+            let changed = (1...46).filter { actual.colorAt(x: $0, y: 18) != baseline.colorAt(x: $0, y: 18) }
+            #expect(changed == (scale == 1 ? [14, 15] : Array(expected)))
+            let column = scale == 1 ? 14 : expected.lowerBound
+            #expect(actual.colorAt(x: column, y: 12) != baseline.colorAt(x: column, y: 12))
+            #expect(actual.colorAt(x: column, y: 23) != baseline.colorAt(x: column, y: 23))
+        }
+    }
+
+    @Test func `split ticks stay in their lane and absent data never draws a tick`() throws {
+        let appearance = try #require(NSAppearance(named: .darkAqua))
+        var ticked: NSBitmapImageRep?
+        var plain: NSBitmapImageRep?
+        appearance.performAsCurrentDrawingAppearance {
+            ticked = GroupedProviderIconComposer.rasterize(GroupedProviderIconComposer.pill(
+                primary: 94,
+                secondary: 58,
+                color: .systemBlue,
+                stale: false,
+                primaryTick: 76,
+                secondaryTick: 26.190476))
+            plain = GroupedProviderIconComposer.rasterize(GroupedProviderIconComposer.pill(
+                primary: 94, secondary: 58, color: .systemBlue, stale: false))
+        }
+        let actual = try #require(ticked), baseline = try #require(plain)
+        #expect((1...46).filter { actual.colorAt(x: $0, y: 16) != baseline.colorAt(x: $0, y: 16) } == [35, 36])
+        #expect((1...46).filter { actual.colorAt(x: $0, y: 20) != baseline.colorAt(x: $0, y: 20) } == [12, 13])
+        let noData = try #require(GroupedProviderIconComposer.rasterize(GroupedProviderIconComposer.pill(
+            primary: nil, secondary: nil, color: .systemBlue, stale: true, loading: true, primaryTick: 50)))
+        let outline = try #require(GroupedProviderIconComposer.rasterize(GroupedProviderIconComposer.pill(
+            primary: nil, secondary: nil, color: .systemBlue, stale: false)))
+        for y in 0..<36 {
+            for x in 0..<48 {
+                #expect(noData.colorAt(x: x, y: y) == outline.colorAt(x: x, y: y))
+            }
+        }
+        #expect(GroupedProviderIconComposer.tickColumns(percent: 0, backingScale: 2) == 1...1)
+        #expect(GroupedProviderIconComposer.tickColumns(percent: 100, backingScale: 2) == 46...46)
+        #expect(GroupedProviderIconComposer.tickColumns(percent: .nan, backingScale: 2) == nil)
+    }
+
+    @Test func `warnings use a solid one point stroke while refresh and stale keep full fills`() throws {
+        func render(stale: Bool = false, loading: Bool = false, warning: GroupedTileWarning.Level = .none)
+            throws -> NSBitmapImageRep
+        {
+            try #require(GroupedProviderIconComposer.rasterize(GroupedProviderIconComposer.pill(
+                primary: 80,
+                secondary: 60,
+                color: .systemBlue,
+                stale: stale,
+                loading: loading,
+                warning: warning,
+                primaryTick: 40,
+                secondaryTick: 30)))
+        }
+        let normal = try render()
+        let stale = try render(stale: true)
+        let refresh = try render(loading: true)
+        let warning = try render(stale: true, loading: true, warning: .red)
+        let solidWarning = try render(warning: .red)
+        for x in 8...38 {
+            #expect(stale.colorAt(x: x, y: 16) == normal.colorAt(x: x, y: 16))
+            #expect(refresh.colorAt(x: x, y: 20) == normal.colorAt(x: x, y: 20))
+            #expect(warning.colorAt(x: x, y: 9) == solidWarning.colorAt(x: x, y: 9))
+        }
+        #expect((12...35).allSatisfy { warning.colorAt(x: $0, y: 9) == warning.colorAt(x: 24, y: 9) })
+        #expect(warning.colorAt(x: 24, y: 9) != normal.colorAt(x: 24, y: 9))
+        #expect((12...35).contains { stale.colorAt(x: $0, y: 8) != normal.colorAt(x: $0, y: 8) })
+    }
 }

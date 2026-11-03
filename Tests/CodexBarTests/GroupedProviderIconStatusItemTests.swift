@@ -6,6 +6,48 @@ import Testing
 @MainActor
 @Suite(.serialized)
 struct GroupedProviderIconStatusItemTests {
+    private final class TooltipProbeOwner: NSObject {
+        var requests = 0
+
+        @objc func view(
+            _: NSView,
+            stringForToolTip _: NSView.ToolTipTag,
+            point _: NSPoint,
+            userData _: UnsafeMutableRawPointer?) -> String
+        {
+            self.requests += 1
+            return "Pace tooltip owner"
+        }
+    }
+
+    @Test func `tooltip owner registers on a native status button`() async throws {
+        let item = testStatusBar().statusItem(withLength: 80)
+        defer { testStatusBar().removeStatusItem(item) }
+        let button = try #require(item.button)
+        let owner = TooltipProbeOwner()
+        let tag = button.addToolTip(button.bounds, owner: owner, userData: nil)
+        defer { button.removeToolTip(tag) }
+        #expect(owner.view(button, stringForToolTip: tag, point: .zero, userData: nil) == "Pace tooltip owner")
+        owner.requests = 0
+        let window = try #require(button.window)
+        window.acceptsMouseMovedEvents = true
+        let center = button.convert(NSPoint(x: button.bounds.midX, y: button.bounds.midY), to: nil)
+        let event = try #require(NSEvent.mouseEvent(
+            with: .mouseMoved,
+            location: center,
+            modifierFlags: [],
+            timestamp: ProcessInfo.processInfo.systemUptime,
+            windowNumber: window.windowNumber,
+            context: nil,
+            eventNumber: 0,
+            clickCount: 0,
+            pressure: 0))
+        NSApplication.shared.sendEvent(event)
+        try await Task.sleep(for: .seconds(2))
+        print("PACE_TOOLTIP_PROBE syntheticHoverRequests=\(owner.requests) frame=\(window.frame)")
+        #expect(button.responds(to: #selector(NSView.addToolTip(_:owner:userData:))))
+    }
+
     @MainActor
     private final class NativeProofState {
         var previous = ""
@@ -81,7 +123,7 @@ struct GroupedProviderIconStatusItemTests {
         controller.applyIcon(phase: nil)
         let button = try #require(controller.statusItem.button)
         #expect(try #require(button.image).size.width > 18)
-        #expect(controller.statusItem.length == NSStatusItem.variableLength)
+        #expect(try controller.statusItem.length == ceil(#require(button.image).size.width) + 5)
         #expect(controller.statusItems.isEmpty)
         let signature = controller.storeIconObservationSignature()
         let image = button.image
@@ -182,6 +224,15 @@ struct GroupedProviderIconStatusItemTests {
         #expect(controller.groupedWarning(provider: .claude) == .red)
         store._setSnapshotForTesting(UsageSnapshot(
             primary: window(85, 10080), secondary: nil, updatedAt: Date()), provider: .grok)
+        #expect(controller.groupedWarning(provider: .grok) == .red)
+        store._setSnapshotForTesting(UsageSnapshot(
+            primary: RateWindow(
+                usedPercent: 85,
+                windowMinutes: nil,
+                resetsAt: Date().addingTimeInterval(7 * 86400),
+                resetDescription: nil),
+            secondary: nil,
+            updatedAt: Date()), provider: .grok)
         #expect(controller.groupedWarning(provider: .grok) == .red)
         settings.setQuotaWarningWindowEnabled(.weekly, enabled: false)
         #expect(controller.groupedWarning(provider: .grok) == .none)
@@ -472,5 +523,118 @@ struct GroupedProviderIconStatusItemTests {
             try GrokDailyCostCache.scan(
                 home: home, now: now, calendar: calendar, previousSignature: nil, mirrors: mirrors)
         }
+    }
+
+    @Test func `grouped leading inset is native minimum with only trailing cost padding`() throws {
+        let image = GroupedProviderIconComposer.pill(
+            primary: 50, secondary: nil, color: .systemBlue, stale: false)
+        let button = NSButton(frame: NSRect(x: 0, y: 0, width: 200, height: 22))
+        button.isBordered = false
+        button.imageScaling = .scaleNone
+        let cell = try #require(button.cell)
+        for highContrast in [false, true] {
+            for costText in [nil, "$0.00", "$70.61", "$123", "$999k"] {
+                let reserved = GroupedDailyCost.reservedDisplayTexts(preferredCurrency: "USD")
+                let width = StatusItemController.applyGroupedButtonContent(
+                    image: image,
+                    costText: costText,
+                    reservedCostTexts: reserved,
+                    highContrast: highContrast,
+                    for: button)
+                button.setFrameSize(NSSize(width: width, height: 22))
+                let leading = highContrast
+                    ? cell.titleRect(forBounds: button.bounds).minX
+                    : cell.imageRect(forBounds: button.bounds).minX
+                #expect(leading == 0)
+                let font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+                let reservedWidth = reserved.map {
+                    NSAttributedString(string: " \($0)", attributes: [.font: font]).size().width
+                }.max() ?? 0
+                #expect(width == ceil(24 + reservedWidth) + 5)
+            }
+            let width = StatusItemController.applyGroupedButtonContent(
+                image: image, costText: nil, reservedCostTexts: [], highContrast: highContrast, for: button)
+            button.setFrameSize(NSSize(width: width, height: 22))
+            let leading = highContrast
+                ? cell.titleRect(forBounds: button.bounds).minX
+                : cell.imageRect(forBounds: button.bounds).minX
+            #expect(leading == 0)
+            #expect(width == 29)
+        }
+    }
+
+    @Test func `dimmed slot preserves normal or budget ink and exact fixed anchors`() throws {
+        let image = GroupedProviderIconComposer.pill(
+            primary: 50, secondary: nil, color: .systemBlue, stale: false)
+        let button = NSButton(frame: NSRect(x: 0, y: 0, width: 200, height: 22))
+        button.isBordered = false
+        for overBudget in [false, true] {
+            let width = StatusItemController.applyGroupedButtonContent(
+                image: image,
+                costText: "$70.61",
+                reservedCostTexts: ["$99.99", "$9,999"],
+                overBudget: overBudget,
+                highContrast: false,
+                for: button)
+            button.setFrameSize(NSSize(width: width, height: 22))
+            let origin = button.cell?.imageRect(forBounds: button.bounds).origin
+            let dimmedWidth = StatusItemController.applyGroupedButtonContent(
+                image: image,
+                costText: "$70.61",
+                reservedCostTexts: ["$99.99", "$9,999"],
+                overBudget: overBudget,
+                dimmed: true,
+                highContrast: false,
+                for: button)
+            let ink = try #require(button.attributedTitle.attribute(
+                .foregroundColor, at: 0, effectiveRange: nil) as? NSColor)
+            #expect(ink.alphaComponent == 0.55)
+            #expect(ink == (overBudget ? NSColor.systemOrange : NSColor.labelColor).withAlphaComponent(0.55))
+            #expect(width == dimmedWidth)
+            #expect(button.cell?.imageRect(forBounds: button.bounds).origin == origin)
+        }
+    }
+
+    @Test func `used fill repaints and grouped exit cancels the pixel timer`() throws {
+        let (settings, store, controller) = self.harness()
+        defer { controller.releaseStatusItemsForTesting() }
+        let now = Date()
+        store._setSnapshotForTesting(
+            UsageSnapshot(
+                primary: RateWindow(
+                    usedPercent: 20,
+                    windowMinutes: 300,
+                    resetsAt: now.addingTimeInterval(228 * 60),
+                    resetDescription: nil),
+                secondary: nil,
+                updatedAt: now),
+            provider: .claude)
+        settings.usageBarsShowUsed = false
+        controller.applyIcon(phase: nil)
+        let button = try #require(controller.statusItem.button)
+        let remaining = try self.pixels(#require(button.image))
+        let timer = try #require(GroupedTooltipOwner.attached(to: button)?.tickTimer)
+        let signature = controller.storeIconObservationSignature()
+        store._setSnapshotForTesting(
+            UsageSnapshot(
+                primary: RateWindow(
+                    usedPercent: 20,
+                    windowMinutes: 301,
+                    resetsAt: now.addingTimeInterval(228 * 60),
+                    resetDescription: nil),
+                secondary: nil,
+                updatedAt: now),
+            provider: .claude)
+        #expect(controller.storeIconObservationSignature() != signature)
+        settings.usageBarsShowUsed = true
+        controller.applyIcon(phase: nil)
+        #expect(try self.pixels(#require(button.image)) != remaining)
+        let activeTimer = try #require(GroupedTooltipOwner.attached(to: button)?.tickTimer)
+        settings.mergeIcons = false
+        _ = controller.storeIconObservationSignature()
+        #expect(!activeTimer.isValid)
+        #expect(!timer.isValid)
+        #expect(button.alignment == .center)
+        #expect(GroupedTooltipOwner.attached(to: button) == nil)
     }
 }
