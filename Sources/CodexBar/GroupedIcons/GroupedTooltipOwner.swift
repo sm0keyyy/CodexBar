@@ -7,6 +7,7 @@ final class GroupedTooltipOwner: NSObject {
     struct ProviderWindows {
         let provider: UsageProvider
         let snapshot: UsageSnapshot?
+        var state: GroupedPillState?
     }
 
     private static var associationKey: UInt8 = 0
@@ -99,6 +100,11 @@ final class GroupedTooltipOwner: NSObject {
         for entry in providers {
             let descriptor = ProviderDescriptorRegistry.descriptor(for: entry.provider)
             let name = L(descriptor.metadata.displayName)
+            let state = entry.state ?? GroupedPillState(
+                hasData: GroupedProviderIconPlan.quota(snapshot: entry.snapshot).shortest != nil)
+            if let explanation = state.explanation(provider: entry.provider, now: now) {
+                lines.append(explanation)
+            }
             guard let snapshot = entry.snapshot else {
                 lines.append(L("pace_tooltip_unknown_format", name, L("Unknown")))
                 continue

@@ -2868,3 +2868,12 @@
 "pace_estimated_cost_format" = "≈%@ (estimació)";
 "pace_weekly_cost_tokens_format" = "%1$@ · %2$@ fitxes";
 "pace_partly_unpriced" = "parcialment sense preu";
+
+"pace_state_critical_format" = "%@: la quota restant ha arribat al llindar d’avís més baix";
+"pace_state_no_data_format" = "%@: les dades d’ús no estan disponibles";
+"pace_state_provider_down_format" = "%@: el proveïdor informa d’un problema del servei";
+"pace_state_refresh_failed_format" = "%@: no s’ha pogut actualitzar l’ús";
+"pace_state_refreshing_format" = "%@: s’estan actualitzant les dades d’ús";
+"pace_state_stale_format" = "%@: ha fallat l’actualització; últimes dades de fa %@";
+"pace_state_warning_format" = "%@: la quota restant ha arribat a un llindar d’avís";
+"pace_open_settings" = "Obre la configuració";

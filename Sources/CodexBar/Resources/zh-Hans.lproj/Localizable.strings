@@ -2858,3 +2858,12 @@
 "pace_estimated_cost_format" = "≈%@（估算）";
 "pace_weekly_cost_tokens_format" = "%1$@ · %2$@词元";
 "pace_partly_unpriced" = "部分未定价";
+
+"pace_state_critical_format" = "%@: 剩余配额已达到最低警告阈值";
+"pace_state_no_data_format" = "%@: 使用量数据不可用";
+"pace_state_provider_down_format" = "%@: 提供商报告了服务问题";
+"pace_state_refresh_failed_format" = "%@: 使用量刷新失败";
+"pace_state_refreshing_format" = "%@: 正在刷新使用量数据";
+"pace_state_stale_format" = "%@: 刷新失败；上次数据为%@前";
+"pace_state_warning_format" = "%@: 剩余配额已达到警告阈值";
+"pace_open_settings" = "打开设置";

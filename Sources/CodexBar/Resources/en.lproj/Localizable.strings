@@ -2871,3 +2871,12 @@
 "pace_estimated_cost_format" = "≈%@ (estimate)";
 "pace_weekly_cost_tokens_format" = "%1$@ · %2$@ tokens";
 "pace_partly_unpriced" = "partly unpriced";
+
+"pace_state_critical_format" = "%@: remaining quota reached the lowest warning threshold";
+"pace_state_no_data_format" = "%@: usage data is unavailable";
+"pace_state_provider_down_format" = "%@: provider reports a service problem";
+"pace_state_refresh_failed_format" = "%@: usage refresh failed";
+"pace_state_refreshing_format" = "%@: refreshing usage data";
+"pace_state_stale_format" = "%@: usage refresh failed; last data %@ ago";
+"pace_state_warning_format" = "%@: remaining quota reached a warning threshold";
+"pace_open_settings" = "Open Settings";

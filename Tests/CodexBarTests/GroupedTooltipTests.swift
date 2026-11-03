@@ -76,6 +76,52 @@ struct GroupedTooltipTests {
         #expect(!text.contains("$0"))
     }
 
+    @Test(arguments: [
+        (GroupedPillState(), "Codex: usage data is unavailable"),
+        (.init(hasData: true, refreshing: true), "Codex: refreshing usage data"),
+        (.init(hasData: true, warning: .amber), "Codex: remaining quota reached a warning threshold"),
+        (.init(hasData: true, warning: .red), "Codex: remaining quota reached the lowest warning threshold"),
+        (.init(hasData: true, flash: true), "Codex: remaining quota reached a warning threshold"),
+        (.init(hasData: true, stale: true), "Codex: usage refresh failed"),
+        (
+            .init(
+                hasData: true, stale: true,
+                updatedAt: Date(timeIntervalSince1970: 1_793_610_000)),
+            "Codex: usage refresh failed; last data 3h ago"),
+        (.init(failure: "Sign in required"), "Codex: Sign in required"),
+        (.init(failure: "Keychain access denied"), "Codex: Keychain access denied"),
+        (.init(failure: "Rate limited; retry later"), "Codex: Rate limited; retry later"),
+        (.init(hasData: true, providerStatus: .major), "Codex: provider reports a service problem"),
+    ])
+    func `every pill state outline produces a strip row and matching tooltip and provider text`(
+        state: GroupedPillState, expected: String) throws
+    {
+        let snapshot = state.hasData ? self.providers[0].snapshot : nil
+        let tooltip = GroupedTooltipOwner.tooltip(
+            providers: [.init(provider: .codex, snapshot: snapshot, state: state)],
+            showUsed: false, costs: GroupedDailyCost.summary(inputs: []), now: self.now)
+        let input = PacePanelInput(
+            providers: [.codex], snapshots: snapshot.map { [.codex: $0] } ?? [:],
+            pillStates: [.codex: state], now: self.now)
+        #expect(tooltip.components(separatedBy: "\n").contains(expected))
+        #expect(try #require(PacePanelModel.make(input).providers.first).stateExplanation == expected)
+        let warning = try #require(PacePanelModel.make(input).warnings.first)
+        #expect(warning.provider == .codex)
+        #expect(warning.stateReason?.text == expected)
+        #expect(warning.stateReason == state.reason(provider: .codex, now: self.now))
+    }
+
+    @Test func `warning explanation takes precedence over stale and refresh just like the outline`() {
+        let state = GroupedPillState(
+            hasData: true, stale: true, refreshing: true, warning: .amber, flash: true, updatedAt: self.now)
+        #expect(state.explanation(provider: .codex, now: self.now)
+            == "Codex: remaining quota reached a warning threshold")
+        #expect(GroupedPillState(hasData: true).explanation(provider: .codex, now: self.now) == nil)
+        let normal = PacePanelInput(
+            providers: [.codex], pillStates: [.codex: .init(hasData: true)], now: self.now)
+        #expect(PacePanelModel.make(normal).warnings.isEmpty)
+    }
+
     @Test func `fallback tooltip reads fresh values only while hovered and detaches all resources`() throws {
         let item = testStatusBar().statusItem(withLength: 100)
         defer { testStatusBar().removeStatusItem(item) }

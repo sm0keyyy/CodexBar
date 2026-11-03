@@ -161,6 +161,37 @@ final class PacePanelRenderProofTests: XCTestCase {
         print("PACE_PANEL_PROOFS overview-dark.png overview-light.png pill-states.png")
     }
 
+    func test_warningStripProofsAndFirstFrameLatency() throws {
+        guard let path = ProcessInfo.processInfo.environment["CODEXBAR_PACE_PANEL_PROOF_DIR"] else {
+            throw XCTSkip("Set CODEXBAR_PACE_PANEL_PROOF_DIR for synthetic offscreen rendering")
+        }
+        let output = URL(fileURLWithPath: path, isDirectory: true)
+        try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+        for hasWarnings in [false, true] {
+            var input = self.fixture
+            if hasWarnings {
+                input.pillStates[.codex] = .init(hasData: true, warning: .amber)
+                input.pillStates[.claude] = .init(
+                    hasData: true, stale: true, updatedAt: self.now.addingTimeInterval(-10800))
+            }
+            XCTAssertEqual(PacePanelModel.make(input).warnings.count, hasWarnings ? 2 : 0)
+            for (name, scheme, appearance) in [
+                ("dark", ColorScheme.dark, NSAppearance.Name.darkAqua),
+                ("light", ColorScheme.light, NSAppearance.Name.aqua),
+            ] {
+                let view = PacePanelRootView(
+                    input: input, model: .make(input), selection: .overview, providerContext: nil,
+                    onCommand: { _ in }, onAction: { _ in })
+                    .background(PaceProofGlass())
+                    .environment(\.colorScheme, scheme)
+                    .fixedSize(horizontal: false, vertical: true)
+                let filename = "overview-\(hasWarnings ? "two-warnings" : "no-warnings")-\(name).png"
+                try self.render(view, width: 360, appearance: appearance, to: output.appendingPathComponent(filename))
+                print("PACE_WARNING_PROOF \(output.appendingPathComponent(filename).path)")
+            }
+        }
+    }
+
     private var fixture: PacePanelInput {
         func window(_ used: Double, _ minutes: Int?, _ remaining: Double) -> RateWindow {
             RateWindow(
@@ -295,10 +326,14 @@ final class PacePanelRenderProofTests: XCTestCase {
     }
 
     private func render(_ view: some View, width: CGFloat, appearance: NSAppearance.Name, to url: URL) throws {
+        let start = CFAbsoluteTimeGetCurrent()
         let hosting = NSHostingView(rootView: view)
         hosting.appearance = NSAppearance(named: appearance)
         hosting.frame.size = NSSize(width: width, height: hosting.fittingSize.height)
         hosting.layoutSubtreeIfNeeded()
+        let milliseconds = (CFAbsoluteTimeGetCurrent() - start) * 1000
+        print("PACE_OFFSCREEN_FIRST_FRAME \(url.lastPathComponent) latency_ms=\(milliseconds)")
+        if url.lastPathComponent.contains("warnings") { XCTAssertLessThanOrEqual(milliseconds, 100) }
         RunLoop.main.run(until: Date().addingTimeInterval(0.15))
         let bitmap = try XCTUnwrap(hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds))
         hosting.cacheDisplay(in: hosting.bounds, to: bitmap)

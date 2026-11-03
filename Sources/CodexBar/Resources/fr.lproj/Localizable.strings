@@ -2865,3 +2865,12 @@
 "pace_estimated_cost_format" = "≈%@ (estimation)";
 "pace_weekly_cost_tokens_format" = "%1$@ · %2$@ jetons";
 "pace_partly_unpriced" = "partiellement sans tarif";
+
+"pace_state_critical_format" = "%@: le quota restant a atteint le seuil d’alerte le plus bas";
+"pace_state_no_data_format" = "%@: données d’utilisation indisponibles";
+"pace_state_provider_down_format" = "%@: le fournisseur signale un problème de service";
+"pace_state_refresh_failed_format" = "%@: échec de l’actualisation de l’utilisation";
+"pace_state_refreshing_format" = "%@: actualisation des données d’utilisation";
+"pace_state_stale_format" = "%@: échec de l’actualisation ; dernières données il y a %@";
+"pace_state_warning_format" = "%@: le quota restant a atteint un seuil d’alerte";
+"pace_open_settings" = "Ouvrir les réglages";

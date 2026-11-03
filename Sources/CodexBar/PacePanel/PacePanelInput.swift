@@ -6,6 +6,7 @@ struct PacePanelInput {
     var snapshots: [UsageProvider: UsageSnapshot] = [:]
     var histories: [UsageProvider: [PlanUtilizationSeriesHistory]] = [:]
     var tokenSnapshots: [UsageProvider: CostUsageTokenSnapshot] = [:]
+    var pillStates: [UsageProvider: GroupedPillState] = [:]
     var todayCostInputs: [GroupedDailyCost.ProviderCostInput] = []
     var showUsed = false
     var costEnabled = true

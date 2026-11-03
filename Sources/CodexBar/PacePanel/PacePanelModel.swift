@@ -21,6 +21,11 @@ struct PaceProviderBlock: Equatable {
     let name: String
     let today: GroupedDailyCost.Value
     let windows: [PaceWindowRow]
+    var stateReason: GroupedPillState.Reason?
+
+    var stateExplanation: String? {
+        self.stateReason?.text
+    }
 }
 
 struct PaceChartPoint: Equatable {
@@ -56,6 +61,10 @@ struct PacePanelModel: Equatable {
     let last7Days: [PaceDayStack]
     let showUsed: Bool
 
+    var warnings: [PaceProviderBlock] {
+        self.providers.filter { $0.stateReason != nil }
+    }
+
     static func make(_ input: PacePanelInput) -> PacePanelModel {
         let providers = input.providers.map { provider in
             let name = ProviderDescriptorRegistry.descriptor(for: provider).metadata.displayName
@@ -63,7 +72,8 @@ struct PacePanelModel: Equatable {
                 provider: provider,
                 name: name,
                 today: input.todayCostInputs.first(where: { $0.name == name })?.value ?? .loading,
-                windows: self.windowRows(provider: provider, input: input))
+                windows: self.windowRows(provider: provider, input: input),
+                stateReason: input.pillStates[provider]?.reason(provider: provider, now: input.now))
         }
         func series(for windowClass: WindowPace.WindowClass) -> [PaceChartSeries] {
             providers.compactMap { block in

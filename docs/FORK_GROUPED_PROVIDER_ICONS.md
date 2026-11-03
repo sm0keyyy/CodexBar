@@ -144,6 +144,15 @@ The panel reads that same `GroupedTooltipOwner.costSlot`, not a second retention
 
 Tooltip lines name only the windows that the pill draws, with percent, pace, and reset countdown.
 The Today line has exact total and provider amounts. Budget, unpriced, and overflow lines remain.
+Each state outline has one shared reason in the tooltip, the Overview warning strip, and the provider header.
+The strip sits above the chart, takes no space without problems, and has no dismiss control.
+Provider dots identify each row. At most one Retry or Open Settings button uses existing provider-scoped actions.
+Amber means remaining quota reached an enabled warning threshold; red means it reached the lowest threshold or an error occurred.
+These warnings use remaining quota, not pace, and follow the configured session and weekly thresholds.
+Overview bars repeat amber, red, and dashed state cues. A normal outline adds no state message.
+Errors retain existing provider-facing sign-in, Keychain, and rate-limit messages instead of guessing authentication from text.
+Provider service incidents also appear. Refreshes, stale captures, and unavailable usage each have a plain reason.
+The strip reads the existing store state and adds no timer or provider request.
 The AppKit tooltip-owner hover path remains unverified on a real status item.
 The approved fallback assigns `button.toolTip` on render and mouse entry, then every 60 s only while hovered.
 Mouse exit removes that hover timer. This timer does not redraw the pill.

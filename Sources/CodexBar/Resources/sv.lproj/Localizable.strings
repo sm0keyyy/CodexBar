@@ -2865,3 +2865,12 @@
 "pace_estimated_cost_format" = "≈%@ (uppskattning)";
 "pace_weekly_cost_tokens_format" = "%1$@ · %2$@ token";
 "pace_partly_unpriced" = "delvis utan pris";
+
+"pace_state_critical_format" = "%@: återstående kvot har nått den lägsta varningsgränsen";
+"pace_state_no_data_format" = "%@: användningsdata är inte tillgängliga";
+"pace_state_provider_down_format" = "%@: leverantören rapporterar ett driftproblem";
+"pace_state_refresh_failed_format" = "%@: uppdatering av användning misslyckades";
+"pace_state_refreshing_format" = "%@: uppdaterar användningsdata";
+"pace_state_stale_format" = "%@: uppdatering misslyckades; senaste data är %@ gamla";
+"pace_state_warning_format" = "%@: återstående kvot har nått en varningsgräns";
+"pace_open_settings" = "Öppna inställningar";

@@ -2869,3 +2869,12 @@
 "pace_estimated_cost_format" = "≈%@ (szacunek)";
 "pace_weekly_cost_tokens_format" = "%1$@ · %2$@ tokenów";
 "pace_partly_unpriced" = "częściowo bez wyceny";
+
+"pace_state_critical_format" = "%@: pozostały limit osiągnął najniższy próg ostrzegawczy";
+"pace_state_no_data_format" = "%@: dane użycia są niedostępne";
+"pace_state_provider_down_format" = "%@: dostawca zgłasza problem z usługą";
+"pace_state_refresh_failed_format" = "%@: aktualizacja użycia nie powiodła się";
+"pace_state_refreshing_format" = "%@: aktualizowanie danych użycia";
+"pace_state_stale_format" = "%@: aktualizacja nie powiodła się; ostatnie dane sprzed %@";
+"pace_state_warning_format" = "%@: pozostały limit osiągnął próg ostrzegawczy";
+"pace_open_settings" = "Otwórz ustawienia";

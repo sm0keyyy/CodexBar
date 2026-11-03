@@ -2844,3 +2844,12 @@
 "pace_estimated_cost_format" = "≈%@（估算）";
 "pace_weekly_cost_tokens_format" = "%1$@ · %2$@詞元";
 "pace_partly_unpriced" = "部分未定價";
+
+"pace_state_critical_format" = "%@: 剩餘配額已達到最低警告門檻";
+"pace_state_no_data_format" = "%@: 使用量資料無法取得";
+"pace_state_provider_down_format" = "%@: 供應商回報服務問題";
+"pace_state_refresh_failed_format" = "%@: 使用量重新整理失敗";
+"pace_state_refreshing_format" = "%@: 正在重新整理使用量資料";
+"pace_state_stale_format" = "%@: 重新整理失敗；上次資料為%@前";
+"pace_state_warning_format" = "%@: 剩餘配額已達到警告門檻";
+"pace_open_settings" = "開啟設定";

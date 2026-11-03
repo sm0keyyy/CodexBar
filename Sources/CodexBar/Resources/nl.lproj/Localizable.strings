@@ -2863,3 +2863,12 @@
 "pace_estimated_cost_format" = "≈%@ (schatting)";
 "pace_weekly_cost_tokens_format" = "%1$@ · %2$@ gebruikstokens";
 "pace_partly_unpriced" = "deels zonder prijs";
+
+"pace_state_critical_format" = "%@: resterend quotum heeft de laagste waarschuwingsdrempel bereikt";
+"pace_state_no_data_format" = "%@: gebruiksgegevens zijn niet beschikbaar";
+"pace_state_provider_down_format" = "%@: aanbieder meldt een serviceprobleem";
+"pace_state_refresh_failed_format" = "%@: vernieuwen van gebruik mislukt";
+"pace_state_refreshing_format" = "%@: gebruiksgegevens worden vernieuwd";
+"pace_state_stale_format" = "%@: vernieuwen mislukt; laatste gegevens van %@ geleden";
+"pace_state_warning_format" = "%@: resterend quotum heeft een waarschuwingsdrempel bereikt";
+"pace_open_settings" = "Instellingen openen";

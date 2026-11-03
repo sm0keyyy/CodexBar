@@ -239,6 +239,58 @@ struct GroupedProviderIconStatusItemTests {
         #expect(controller.groupedWarning(provider: .claude) == .none)
     }
 
+    @Test func `Codex weekly 37 percent remaining explains its configured amber outline`() throws {
+        let (settings, store, controller) = self.harness()
+        defer { controller.releaseStatusItemsForTesting() }
+        settings.setQuotaWarningWindowEnabled(.weekly, enabled: true)
+        settings.setQuotaWarningThresholds(.weekly, thresholds: [50, 20])
+        store._setSnapshotForTesting(UsageSnapshot(
+            primary: nil,
+            secondary: RateWindow(
+                usedPercent: 63, windowMinutes: 10080, resetsAt: nil, resetDescription: nil),
+            updatedAt: Date()), provider: .codex)
+        #expect(controller.groupedWarning(provider: .codex) == .amber)
+        let expected = "Codex: remaining quota reached a warning threshold"
+        #expect(controller.groupedTooltip(now: Date())?.contains(expected) == true)
+        let input = controller.makePacePanelInput(now: Date())
+        #expect(try #require(PacePanelModel.make(input).providers.first).stateExplanation == expected)
+        settings.setQuotaWarningWindowEnabled(.weekly, enabled: false)
+        #expect(controller.groupedWarning(provider: .codex) == .none)
+        #expect(controller.groupedTooltip(now: Date())?.contains(expected) == false)
+        #expect(PacePanelModel.make(controller.makePacePanelInput(now: Date()))
+            .providers.first?.stateExplanation == nil)
+    }
+
+    @Test func `provider failures share the red cue and clear without a dismissed warning`() throws {
+        let (_, store, controller) = self.harness()
+        defer { controller.releaseStatusItemsForTesting() }
+        store.errors[.grok] = "Rate limited; retry later"
+        let state = controller.groupedPillState(provider: .grok)
+        #expect(state.outlineWarning == .red)
+        let expected = "Grok: Rate limited; retry later"
+        #expect(controller.groupedTooltip(now: Date())?.contains(expected) == true)
+        let warning = try #require(PacePanelModel.make(controller.makePacePanelInput(now: Date())).warnings.first)
+        #expect(warning.provider == .grok)
+        #expect(warning.stateReason?.text == expected)
+        #expect(warning.stateReason?.cue == .error)
+        #expect(warning.stateReason?.fix == .retry)
+        store.errors[.grok] = nil
+        #expect(PacePanelModel.make(controller.makePacePanelInput(now: Date())).warnings.isEmpty)
+    }
+
+    @Test func `strip retry uses only the selected provider manual refresh path`() async throws {
+        let (_, _, controller) = self.harness()
+        defer { controller.releaseStatusItemsForTesting() }
+        var refreshed = false
+        controller._test_manualRefreshOperation = { refreshed = true }
+        controller.performPacePanelFix(.retry, provider: .grok)
+        let task = try #require(controller.manualRefreshTasks[.provider(.grok)])
+        #expect(controller.manualRefreshTasks[.global] == nil)
+        #expect(controller.manualRefreshTasks[.provider(.codex)] == nil)
+        await task.value
+        #expect(refreshed)
+    }
+
     @Test func `S7 S8 Grok cache moves title signature and strict budget tint`() throws {
         let (settings, _, controller) = self.harness()
         let old = GrokDailyCostCache.shared.today

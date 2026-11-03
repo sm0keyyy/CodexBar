@@ -2868,3 +2868,12 @@
 "pace_estimated_cost_format" = "≈%@ (perkiraan)";
 "pace_weekly_cost_tokens_format" = "%1$@ · %2$@ token penggunaan";
 "pace_partly_unpriced" = "sebagian belum diberi harga";
+
+"pace_state_critical_format" = "%@: kuota tersisa mencapai ambang peringatan terendah";
+"pace_state_no_data_format" = "%@: data penggunaan tidak tersedia";
+"pace_state_provider_down_format" = "%@: penyedia melaporkan masalah layanan";
+"pace_state_refresh_failed_format" = "%@: gagal memperbarui penggunaan";
+"pace_state_refreshing_format" = "%@: memperbarui data penggunaan";
+"pace_state_stale_format" = "%@: pembaruan gagal; data terakhir %@ lalu";
+"pace_state_warning_format" = "%@: kuota tersisa mencapai ambang peringatan";
+"pace_open_settings" = "Buka Pengaturan";

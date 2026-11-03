@@ -2867,3 +2867,12 @@
 "pace_estimated_cost_format" = "≈%@ (оценка)";
 "pace_weekly_cost_tokens_format" = "%1$@ · %2$@ токенов";
 "pace_partly_unpriced" = "частично без цены";
+
+"pace_state_critical_format" = "%@: остаток квоты достиг нижнего порога предупреждения";
+"pace_state_no_data_format" = "%@: данные об использовании недоступны";
+"pace_state_provider_down_format" = "%@: поставщик сообщает о сбое сервиса";
+"pace_state_refresh_failed_format" = "%@: не удалось обновить данные об использовании";
+"pace_state_refreshing_format" = "%@: обновление данных об использовании";
+"pace_state_stale_format" = "%@: обновление не удалось; последние данные получены %@ назад";
+"pace_state_warning_format" = "%@: остаток квоты достиг порога предупреждения";
+"pace_open_settings" = "Открыть настройки";
