@@ -2867,3 +2867,12 @@
 "pace_estimated_cost_format" = "≈%@ (оцінка)";
 "pace_weekly_cost_tokens_format" = "%1$@ · %2$@ токенів";
 "pace_partly_unpriced" = "частково без ціни";
+
+"pace_state_critical_format" = "%@: залишок квоти досяг найнижчого порогу попередження";
+"pace_state_no_data_format" = "%@: дані про використання недоступні";
+"pace_state_provider_down_format" = "%@: постачальник повідомляє про збій сервісу";
+"pace_state_refresh_failed_format" = "%@: не вдалося оновити дані про використання";
+"pace_state_refreshing_format" = "%@: оновлення даних про використання";
+"pace_state_stale_format" = "%@: оновлення не вдалося; останні дані отримано %@ тому";
+"pace_state_warning_format" = "%@: залишок квоти досяг порогу попередження";
+"pace_open_settings" = "Відкрити налаштування";

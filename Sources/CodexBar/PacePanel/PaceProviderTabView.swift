@@ -87,6 +87,12 @@ struct PaceProviderTabView: View {
                 }
             }
             .font(.system(size: 10))
+            if let explanation = self.block.stateExplanation {
+                Text(explanation)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             if let error = self.context?.error, error != self.context?.card?.subtitleText {
                 Text(error).font(.system(size: 11)).foregroundStyle(Color(nsColor: .systemOrange))
                     .textSelection(.enabled)

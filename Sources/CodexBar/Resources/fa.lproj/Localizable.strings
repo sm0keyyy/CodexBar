@@ -2870,3 +2870,12 @@
 "pace_estimated_cost_format" = "≈%@ (برآورد)";
 "pace_weekly_cost_tokens_format" = "%1$@ · %2$@ توکن";
 "pace_partly_unpriced" = "بخشی بدون قیمت";
+
+"pace_state_critical_format" = "%@: سهمیهٔ باقی‌مانده به پایین‌ترین آستانهٔ هشدار رسید";
+"pace_state_no_data_format" = "%@: داده‌های مصرف در دسترس نیست";
+"pace_state_provider_down_format" = "%@: ارائه‌دهنده از مشکل سرویس خبر می‌دهد";
+"pace_state_refresh_failed_format" = "%@: به‌روزرسانی مصرف ناموفق بود";
+"pace_state_refreshing_format" = "%@: در حال به‌روزرسانی داده‌های مصرف";
+"pace_state_stale_format" = "%@: به‌روزرسانی ناموفق بود؛ آخرین داده‌ها مربوط به %@ پیش است";
+"pace_state_warning_format" = "%@: سهمیهٔ باقی‌مانده به آستانهٔ هشدار رسید";
+"pace_open_settings" = "باز کردن تنظیمات";

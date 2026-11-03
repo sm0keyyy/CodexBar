@@ -27,6 +27,7 @@ struct PacePanelRootView: View {
     let providerContext: PaceProviderTabContext?
     let onCommand: (PacePanelCommand) -> Void
     let onAction: (MenuDescriptor.MenuAction) -> Void
+    var onFix: (UsageProvider, GroupedPillState.Fix) -> Void = { _, _ in }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -47,7 +48,7 @@ struct PacePanelRootView: View {
             }
             switch self.selection {
             case .overview:
-                PaceOverviewView(model: self.model, input: self.input, onAction: self.onAction)
+                PaceOverviewView(model: self.model, input: self.input, onAction: self.onAction, onFix: self.onFix)
             case let .provider(provider):
                 if let block = self.model.providers.first(where: { $0.provider == provider }) {
                     PaceProviderTabView(

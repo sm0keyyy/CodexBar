@@ -2867,3 +2867,12 @@
 "pace_estimated_cost_format" = "≈%@ (ước tính)";
 "pace_weekly_cost_tokens_format" = "%1$@ · %2$@ mã thông báo";
 "pace_partly_unpriced" = "một phần chưa định giá";
+
+"pace_state_critical_format" = "%@: hạn mức còn lại đã chạm ngưỡng cảnh báo thấp nhất";
+"pace_state_no_data_format" = "%@: không có dữ liệu sử dụng";
+"pace_state_provider_down_format" = "%@: nhà cung cấp báo cáo sự cố dịch vụ";
+"pace_state_refresh_failed_format" = "%@: cập nhật mức sử dụng thất bại";
+"pace_state_refreshing_format" = "%@: đang cập nhật dữ liệu sử dụng";
+"pace_state_stale_format" = "%@: cập nhật thất bại; dữ liệu gần nhất cách đây %@";
+"pace_state_warning_format" = "%@: hạn mức còn lại đã chạm ngưỡng cảnh báo";
+"pace_open_settings" = "Mở cài đặt";

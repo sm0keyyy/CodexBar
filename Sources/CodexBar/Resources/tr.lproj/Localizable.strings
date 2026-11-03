@@ -2869,3 +2869,12 @@
 "pace_estimated_cost_format" = "≈%@ (tahmin)";
 "pace_weekly_cost_tokens_format" = "%1$@ · %2$@ belirteç";
 "pace_partly_unpriced" = "kısmen fiyatlandırılmamış";
+
+"pace_state_critical_format" = "%@: kalan kota en düşük uyarı eşiğine ulaştı";
+"pace_state_no_data_format" = "%@: kullanım verileri mevcut değil";
+"pace_state_provider_down_format" = "%@: sağlayıcı bir hizmet sorunu bildiriyor";
+"pace_state_refresh_failed_format" = "%@: kullanım yenilenemedi";
+"pace_state_refreshing_format" = "%@: kullanım verileri yenileniyor";
+"pace_state_stale_format" = "%@: yenileme başarısız; son veriler %@ önce alındı";
+"pace_state_warning_format" = "%@: kalan kota bir uyarı eşiğine ulaştı";
+"pace_open_settings" = "Ayarları aç";

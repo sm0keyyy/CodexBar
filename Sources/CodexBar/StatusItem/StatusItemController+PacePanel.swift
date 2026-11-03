@@ -78,7 +78,8 @@ extension StatusItemController {
             selection: selection,
             providerContext: context,
             onCommand: { [weak self] in self?.performPacePanelCommand($0) },
-            onAction: { [weak self] in self?.performPacePanelAction($0) }))
+            onAction: { [weak self] in self?.performPacePanelAction($0) },
+            onFix: { [weak self] provider, fix in self?.performPacePanelFix(fix, provider: provider) }))
     }
 
     func makePacePanelInput(now: Date) -> PacePanelInput {
@@ -106,6 +107,7 @@ extension StatusItemController {
         }
         for provider in providers {
             input.snapshots[provider] = self.store.snapshot(for: provider.instanceID)
+            input.pillStates[provider] = self.groupedPillState(provider: provider)
             input.histories[provider] = self.store.planUtilizationHistorySelection(
                 for: provider, readOnly: true).histories
             if input.costEnabled {
@@ -113,6 +115,16 @@ extension StatusItemController {
             }
         }
         return input
+    }
+
+    func performPacePanelFix(_ fix: GroupedPillState.Fix, provider: UsageProvider) {
+        switch fix {
+        case .retry:
+            self.startManualRefresh(
+                for: provider.instanceID, originatingMenuID: nil, originatingMenuInteractionGeneration: nil)
+        case .settings:
+            self.performPacePanelAction(.providerSettings(provider))
+        }
     }
 
     func performPacePanelCommand(_ command: PacePanelCommand) {

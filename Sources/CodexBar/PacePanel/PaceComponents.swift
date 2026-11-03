@@ -54,6 +54,7 @@ struct PaceTimelineRow: View {
     let provider: UsageProvider
     let row: PaceWindowRow
     let showUsed: Bool
+    var stateReason: GroupedPillState.Reason?
 
     var body: some View {
         let colors = PacePalette.colors(for: self.provider, role: self.row.role)
@@ -67,6 +68,16 @@ struct PaceTimelineRow: View {
                 tickPercent: self.row.tickPercent,
                 color: colors.fill,
                 track: colors.track)
+                .overlay {
+                    if let reason = self.stateReason {
+                        RoundedRectangle(cornerRadius: 4).strokeBorder(
+                            reason.cue == .error ? Color(nsColor: .systemRed)
+                                : (reason.cue == .warning ? Color(nsColor: .systemOrange) : colors.fill),
+                            style: StrokeStyle(
+                                lineWidth: 1,
+                                dash: reason.dashed ? [2, 2] : []))
+                    }
+                }
             VStack(alignment: .trailing, spacing: 1) {
                 HStack(spacing: 3) {
                     Text(self.row.fillPercent.formatted(.number.precision(.fractionLength(0))) + "%")
@@ -97,7 +108,7 @@ struct PaceTimelineRow: View {
             self.row.fillPercent)
         let pace = self.row.pace.map { WindowPace.paceText(reservePercent: $0.reservePercent) }
         let reset = self.row.countdown.map { L("pace_resets_in_format", $0) }
-        return [usage, pace, reset].compactMap(\.self).joined(separator: ", ")
+        return [usage, pace, reset, self.stateReason?.text].compactMap(\.self).joined(separator: ", ")
     }
 }
 

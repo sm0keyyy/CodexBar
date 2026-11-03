@@ -5,10 +5,35 @@ struct PaceOverviewView: View {
     let model: PacePanelModel
     let input: PacePanelInput
     let onAction: (MenuDescriptor.MenuAction) -> Void
+    var onFix: (UsageProvider, GroupedPillState.Fix) -> Void = { _, _ in }
     @State var showsWeekly = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            if !self.model.warnings.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(self.model.warnings, id: \.provider) { block in
+                        if let reason = block.stateReason {
+                            HStack(alignment: .top, spacing: 6) {
+                                Circle().fill(PacePalette.colors(for: block.provider).fill)
+                                    .frame(width: 7, height: 7).padding(.top, 3)
+                                Text(reason.text).fixedSize(horizontal: false, vertical: true)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                if let fix = reason.fix {
+                                    Button(fix.title) { self.onFix(block.provider, fix) }
+                                        .controlSize(.mini)
+                                }
+                            }
+                            .accessibilityElement(children: .contain)
+                        }
+                    }
+                }
+                .font(.system(size: 11))
+                .padding(10)
+                .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 6))
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
+            }
             HStack {
                 Text(L("pace_every_provider")).fontWeight(.semibold)
                 Spacer(minLength: 4)
@@ -41,7 +66,9 @@ struct PaceOverviewView: View {
             ForEach(self.model.providers, id: \.provider) { block in
                 self.providerHeader(block)
                 ForEach(block.windows) { row in
-                    PaceTimelineRow(provider: block.provider, row: row, showUsed: self.model.showUsed)
+                    PaceTimelineRow(
+                        provider: block.provider, row: row, showUsed: self.model.showUsed,
+                        stateReason: block.stateReason)
                 }
             }
             Divider().padding(.top, 8)

@@ -5,11 +5,8 @@ extension StatusItemController {
     private struct GroupedTile {
         let provider: UsageProvider
         let quota: GroupedProviderIconPlan.Quota
-        let stale: Bool
-        let loading: Bool
-        let warning: GroupedTileWarning.Level
+        let state: GroupedPillState
         let tint: NSColor
-        let flash: Bool
         let primaryTick: WindowPace.TickLane?
         let secondaryTick: WindowPace.TickLane?
 
@@ -20,8 +17,9 @@ extension StatusItemController {
                         percent: $0.pace.tickPercent(showUsed: $0.showUsed), backingScale: backingScale)
                 }.map(String.init(describing:)) ?? "nil"
             }
-            return "\(self.provider.rawValue),quota=\(self.quota.signature),stale=\(self.stale)"
-                + ",loading=\(self.loading),warning=\(self.warning.rawValue),tint=\(self.tint),flash=\(self.flash)"
+            return "\(self.provider.rawValue),quota=\(self.quota.signature),stale=\(self.state.stale)"
+                + ",loading=\(self.state.refreshing),warning=\(self.state.outlineWarning.rawValue)"
+                + ",tint=\(self.tint),flash=\(self.state.flash)"
                 + ",ticks=\(columns.joined(separator: ","))"
         }
     }
@@ -64,7 +62,7 @@ extension StatusItemController {
         let costInputs = self.groupedCostInputs(now: now)
         let slot = owner.costSlot.resolve(
             inputs: costInputs,
-            isReloading: tiles.contains(where: \.loading),
+            isReloading: tiles.contains { !$0.state.hasData || $0.state.refreshing },
             preferredCurrency: self.settings.preferredCurrencyCode,
             now: now)
         let overBudget = self.settings.menuBarGroupedDailyBudgetUSD > 0
@@ -115,7 +113,6 @@ extension StatusItemController {
 
     private func groupedTile(provider: UsageProvider, now: Date) -> GroupedTile {
         let quota = GroupedProviderIconPlan.quota(snapshot: self.menuBarUsageSource(for: provider).snapshot)
-        let stale = self.menuBarIsStale(for: provider)
         let accent = ProviderAccentPalette.color(for: provider)
         let tint = NSColor(srgbRed: accent.red, green: accent.green, blue: accent.blue, alpha: 1)
         func tick(_ window: RateWindow?) -> WindowPace.TickLane? {
@@ -126,13 +123,25 @@ extension StatusItemController {
         return GroupedTile(
             provider: provider,
             quota: quota,
-            stale: stale,
-            loading: quota.shortest == nil || self.isRefreshingLocalMenuBarUsage(provider),
-            warning: self.groupedWarning(provider: provider),
+            state: self.groupedPillState(provider: provider),
             tint: tint,
-            flash: self.quotaWarningFlashActive(provider: provider),
             primaryTick: tick(quota.shortest),
             secondaryTick: tick(quota.longest))
+    }
+
+    func groupedPillState(provider: UsageProvider) -> GroupedPillState {
+        let snapshot = self.menuBarUsageSource(for: provider).snapshot
+        return GroupedPillState(
+            hasData: GroupedProviderIconPlan.quota(snapshot: snapshot).shortest != nil,
+            stale: self.menuBarIsStale(for: provider),
+            refreshing: self.isRefreshingLocalMenuBarUsage(provider),
+            warning: self.groupedWarning(provider: provider),
+            flash: self.quotaWarningFlashActive(provider: provider),
+            updatedAt: snapshot?.updatedAt,
+            failure: self.store.errors[provider.instanceID].flatMap { _ in
+                self.store.userFacingErrorPresentation(for: provider)?.message
+            },
+            providerStatus: self.store.statusIndicator(for: provider))
     }
 
     private func renderGroupedTile(_ tile: GroupedTile, backingScale: CGFloat) -> NSImage {
@@ -141,10 +150,10 @@ extension StatusItemController {
             secondary: tile.quota.longest
                 .map { self.settings.usageBarsShowUsed ? $0.usedPercent : $0.remainingPercent },
             color: tile.tint,
-            stale: tile.stale,
-            loading: tile.loading,
-            warning: tile.warning,
-            flash: tile.flash,
+            stale: tile.state.stale,
+            loading: !tile.state.hasData || tile.state.refreshing,
+            warning: tile.state.outlineWarning,
+            flash: tile.state.flash,
             primaryTick: tile.primaryTick.map { $0.pace.tickPercent(showUsed: $0.showUsed) },
             secondaryTick: tile.secondaryTick.map { $0.pace.tickPercent(showUsed: $0.showUsed) },
             backingScale: backingScale)
@@ -162,7 +171,11 @@ extension StatusItemController {
         let hidden = self.store.enabledFirstPartyProvidersForDisplay().count - providers.count
         if hidden > 0 { additionalLines.append(L("grouped_icons_tooltip_more", hidden)) }
         return GroupedTooltipOwner.tooltip(
-            providers: providers.map { .init(provider: $0, snapshot: self.menuBarUsageSource(for: $0).snapshot) },
+            providers: providers.map {
+                .init(
+                    provider: $0, snapshot: self.menuBarUsageSource(for: $0).snapshot,
+                    state: self.groupedPillState(provider: $0))
+            },
             showUsed: self.settings.usageBarsShowUsed,
             costs: self.groupedCostSummary(now: now),
             additionalLines: additionalLines,
