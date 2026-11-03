@@ -158,6 +158,7 @@ private struct PaceChartPlot: View {
         GeometryReader { geometry in
             let width = max(1, geometry.size.width - (self.showsAxes ? 30 : 0))
             let height = max(1, geometry.size.height - (self.showsAxes ? 16 : 0))
+            let labelFrames = self.labelFrames(width: width, height: height)
             ZStack(alignment: .topLeading) {
                 self.grid(width: width, height: height)
                 Path { path in
@@ -178,14 +179,13 @@ private struct PaceChartPlot: View {
                         let point = self.position(sample, width: width, height: height)
                         Path(ellipseIn: CGRect(x: point.x - 3, y: point.y - 3, width: 6, height: 6))
                             .fill(self.colors[index])
-                        if self.showsLabels {
+                        if self.showsLabels, let frame = labelFrames[index] {
                             Text(L("pace_chart_label_format", self.series[index].label, sample.remainingPercent))
                                 .font(.system(size: 9, weight: .semibold))
-                                .foregroundStyle(self.colors[index])
-                                .fixedSize()
-                                .position(
-                                    x: min(width - 35, max(35, point.x + (sample.x > 0.6 ? -35 : 35))),
-                                    y: min(height - 5, max(7, point.y + (index.isMultiple(of: 2) ? -10 : 12))))
+                                .foregroundStyle(Color(nsColor: PaceChartLabelLayout.textColor))
+                                .lineLimit(1)
+                                .frame(width: frame.width, height: frame.height)
+                                .position(x: frame.midX, y: frame.midY)
                         }
                     }
                 }
@@ -196,6 +196,21 @@ private struct PaceChartPlot: View {
 
     private func position(_ point: PaceChartPoint, width: CGFloat, height: CGFloat) -> CGPoint {
         CGPoint(x: width * point.x, y: height * (1 - point.remainingPercent / 100))
+    }
+
+    private func labelFrames(width: CGFloat, height: CGFloat) -> [CGRect?] {
+        guard self.showsLabels else { return [] }
+        let plot = CGRect(x: 0, y: 0, width: width, height: height)
+        return PaceChartLabelLayout.place(
+            points: self.series.map { series in
+                series.samples.last.map { self.position($0, width: width, height: height) }
+            },
+            sizes: self.series.map { series in
+                PaceChartLabelLayout.size(for: L(
+                    "pace_chart_label_format", series.label, series.samples.last?.remainingPercent ?? 0))
+            },
+            in: plot,
+            avoiding: self.showsAxes ? [PaceChartLabelLayout.idealFrame(in: plot)] : [])
     }
 
     private func grid(width: CGFloat, height: CGFloat) -> some View {
@@ -220,7 +235,10 @@ private struct PaceChartPlot: View {
                 Text(value.formatted())
                     .position(x: width + 17, y: max(5, height * (1 - Double(value) / 100)))
             }
-            Text(L("pace_ideal")).position(x: width - 14, y: height - 7)
+            let ideal = PaceChartLabelLayout.idealFrame(in: CGRect(x: 0, y: 0, width: width, height: height))
+            Text(L("pace_ideal"))
+                .foregroundStyle(Color(nsColor: PaceChartLabelLayout.textColor))
+                .position(x: ideal.midX, y: ideal.midY)
             HStack(spacing: 0) {
                 Text(L("pace_window_start"))
                 Spacer(minLength: 0)

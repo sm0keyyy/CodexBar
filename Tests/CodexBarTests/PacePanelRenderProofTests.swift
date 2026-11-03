@@ -82,6 +82,50 @@ final class PacePanelRenderProofTests: XCTestCase {
         XCTAssertEqual(claude.windows.map(\.label), ["Session", "Weekly", "Fable"])
     }
 
+    func test_closeChartLabelsAvoidEveryDotEachOtherAndThePlotEdges() throws {
+        let plot = CGRect(x: 0, y: 0, width: 298, height: 108)
+        let points: [CGPoint?] = [CGPoint(x: 213, y: 58), CGPoint(x: 220, y: 45), CGPoint(x: 298, y: 0)]
+        let sizes = ["Codex 46%", "Claude 58%", "Grok 95%"].map { PaceChartLabelLayout.size(for: $0) }
+        let ideal = PaceChartLabelLayout.idealFrame(in: plot)
+        let frames = PaceChartLabelLayout.place(points: points, sizes: sizes, in: plot, avoiding: [ideal])
+        XCTAssertEqual(frames, PaceChartLabelLayout.place(points: points, sizes: sizes, in: plot, avoiding: [ideal]))
+        for (index, placement) in frames.enumerated() {
+            let frame = try XCTUnwrap(placement)
+            XCTAssertTrue(plot.contains(frame))
+            XCTAssertFalse(frame.intersects(ideal))
+            for point in points.compactMap(\.self) {
+                XCTAssertFalse(frame.intersects(CGRect(x: point.x - 5, y: point.y - 5, width: 10, height: 10)))
+            }
+            for other in frames.dropFirst(index + 1) {
+                XCTAssertFalse(try frame.intersects(XCTUnwrap(other)))
+            }
+        }
+        XCTAssertLessThan(ideal.maxY, plot.height * ideal.minX / plot.width - 4)
+    }
+
+    func test_chartLabelTextHasContrastInBothAppearances() throws {
+        func luminance(_ color: NSColor) throws -> Double {
+            let rgb = try XCTUnwrap(color.usingColorSpace(.sRGB))
+            let channels = [rgb.redComponent, rgb.greenComponent, rgb.blueComponent].map {
+                $0 <= 0.04045 ? $0 / 12.92 : pow(($0 + 0.055) / 1.055, 2.4)
+            }
+            return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722
+        }
+        for name in [NSAppearance.Name.darkAqua, .aqua] {
+            let appearance = try XCTUnwrap(NSAppearance(named: name))
+            var resolvedInk: NSColor?
+            var resolvedBackground: NSColor?
+            appearance.performAsCurrentDrawingAppearance {
+                resolvedInk = PaceChartLabelLayout.textColor.usingColorSpace(.sRGB)
+                resolvedBackground = NSColor.windowBackgroundColor.usingColorSpace(.sRGB)
+            }
+            let ink = try luminance(XCTUnwrap(resolvedInk))
+            let background = try luminance(XCTUnwrap(resolvedBackground))
+            let ratio = (max(ink, background) + 0.05) / (min(ink, background) + 0.05)
+            XCTAssertGreaterThanOrEqual(ratio, 4.5)
+        }
+    }
+
     func test_syntheticOverviewAndEveryPillState() throws {
         guard let path = ProcessInfo.processInfo.environment["CODEXBAR_PACE_PANEL_PROOF_DIR"] else {
             throw XCTSkip("Set CODEXBAR_PACE_PANEL_PROOF_DIR for synthetic offscreen rendering")
