@@ -85,7 +85,8 @@ struct GroupedTooltipTests {
         (.init(hasData: true, stale: true), "Codex: usage refresh failed"),
         (
             .init(
-                hasData: true, stale: true,
+                hasData: true,
+                stale: true,
                 updatedAt: Date(timeIntervalSince1970: 1_793_610_000)),
             "Codex: usage refresh failed; last data 3h ago"),
         (.init(failure: "Sign in required"), "Codex: Sign in required"),
@@ -99,10 +100,14 @@ struct GroupedTooltipTests {
         let snapshot = state.hasData ? self.providers[0].snapshot : nil
         let tooltip = GroupedTooltipOwner.tooltip(
             providers: [.init(provider: .codex, snapshot: snapshot, state: state)],
-            showUsed: false, costs: GroupedDailyCost.summary(inputs: []), now: self.now)
+            showUsed: false,
+            costs: GroupedDailyCost.summary(inputs: []),
+            now: self.now)
         let input = PacePanelInput(
-            providers: [.codex], snapshots: snapshot.map { [.codex: $0] } ?? [:],
-            pillStates: [.codex: state], now: self.now)
+            providers: [.codex],
+            snapshots: snapshot.map { [.codex: $0] } ?? [:],
+            pillStates: [.codex: state],
+            now: self.now)
         #expect(tooltip.components(separatedBy: "\n").contains(expected))
         #expect(try #require(PacePanelModel.make(input).providers.first).stateExplanation == expected)
         let warning = try #require(PacePanelModel.make(input).warnings.first)

@@ -67,7 +67,9 @@ struct PaceOverviewView: View {
                 self.providerHeader(block)
                 ForEach(block.windows) { row in
                     PaceTimelineRow(
-                        provider: block.provider, row: row, showUsed: self.model.showUsed,
+                        provider: block.provider,
+                        row: row,
+                        showUsed: self.model.showUsed,
                         stateReason: block.stateReason)
                 }
             }
