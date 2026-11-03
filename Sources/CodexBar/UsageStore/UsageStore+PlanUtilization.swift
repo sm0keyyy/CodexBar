@@ -284,7 +284,9 @@ extension UsageStore {
             capturedAt: now,
             codexLimitResetOwnerKey: codexLimitResetOwnerKey,
             sessionRestoredNotificationPending: sessionRestoredNotificationPending)
-        self.postLimitResetCelebrationsIfNeeded(context: detectorContext, samples: detectorSamples)
+        if ProviderDescriptorRegistry.descriptor(for: provider).history.supportsPlanUtilization {
+            self.postLimitResetCelebrationsIfNeeded(context: detectorContext, samples: detectorSamples)
+        }
         let paceSamples = self.paceSamplerSamples(
             provider: provider,
             snapshot: snapshot,
@@ -355,6 +357,15 @@ extension UsageStore {
             guard providerBuckets != originalProviderBuckets else { return }
             self.planUtilizationHistory[provider.instanceID] = providerBuckets
             self.planUtilizationHistoryRevision &+= 1
+            if self.isPaceSamplerActive {
+                let reconciled = histories != originalHistories
+                let boundary = Self.paceSamplerPersistenceBoundary(histories: histories, samples: samplesToPersist)
+                guard reconciled || boundary.completedHour || boundary.reset else { return }
+                snapshotToPersist = reconciled || boundary.reset
+                    ? self.planUtilizationHistory
+                    : Self.completedPaceSamplerSnapshot(self.planUtilizationHistory, now: now)
+                return
+            }
             snapshotToPersist = self.planUtilizationHistory
         }
 
@@ -757,7 +768,7 @@ extension UsageStore {
                 preferIncoming: preferObservationMetadata))
     }
 
-    private nonisolated static func haveMeaningfullyDifferentResetBoundaries(_ lhs: Date?, _ rhs: Date?) -> Bool {
+    nonisolated static func haveMeaningfullyDifferentResetBoundaries(_ lhs: Date?, _ rhs: Date?) -> Bool {
         switch (lhs, rhs) {
         case let (lhs?, rhs?):
             abs(lhs.timeIntervalSince(rhs)) >= self.planUtilizationResetEquivalenceToleranceSeconds
@@ -1583,7 +1594,7 @@ extension UsageStore {
 actor PlanUtilizationHistoryPersistenceCoordinator {
     private let store: PlanUtilizationHistoryStore
     private var pendingSnapshot: [ProviderInstanceID: PlanUtilizationHistoryBuckets]?
-    private var isPersisting: Bool = false
+    private var persistTask: Task<Void, Never>?
 
     init(store: PlanUtilizationHistoryStore) {
         self.store = store
@@ -1591,12 +1602,19 @@ actor PlanUtilizationHistoryPersistenceCoordinator {
 
     func enqueue(_ snapshot: [ProviderInstanceID: PlanUtilizationHistoryBuckets]) {
         self.pendingSnapshot = snapshot
-        guard !self.isPersisting else { return }
-        self.isPersisting = true
-
-        Task(priority: .utility) {
+        guard self.persistTask == nil else { return }
+        self.persistTask = Task(priority: .utility) {
             await self.persistLoop()
         }
+    }
+
+    func waitForPendingWrites() async {
+        await self.persistTask?.value
+    }
+
+    func flush(_ snapshot: [ProviderInstanceID: PlanUtilizationHistoryBuckets]) async {
+        self.enqueue(snapshot)
+        await self.waitForPendingWrites()
     }
 
     private func persistLoop() async {
@@ -1605,7 +1623,7 @@ actor PlanUtilizationHistoryPersistenceCoordinator {
             await self.saveAsync(nextSnapshot)
         }
 
-        self.isPersisting = false
+        self.persistTask = nil
     }
 
     private func saveAsync(_ snapshot: [ProviderInstanceID: PlanUtilizationHistoryBuckets]) async {

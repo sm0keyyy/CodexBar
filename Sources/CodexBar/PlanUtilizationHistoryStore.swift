@@ -207,9 +207,14 @@ struct PlanUtilizationHistoryStore: Sendable {
     fileprivate static let providerSchemaVersion = 1
 
     let directoryURL: URL?
+    let didWrite: (@Sendable (URL, Int) -> Void)?
 
-    init(directoryURL: URL? = Self.defaultDirectoryURL()) {
+    init(
+        directoryURL: URL? = Self.defaultDirectoryURL(),
+        didWrite: (@Sendable (URL, Int) -> Void)? = nil)
+    {
         self.directoryURL = directoryURL
+        self.didWrite = didWrite
     }
 
     static func defaultAppSupport() -> Self {
@@ -261,6 +266,7 @@ struct PlanUtilizationHistoryStore: Sendable {
                     continue
                 }
                 try data.write(to: fileURL, options: Data.WritingOptions.atomic)
+                self.didWrite?(fileURL, data.count)
             }
         } catch {
             // Best-effort persistence only.

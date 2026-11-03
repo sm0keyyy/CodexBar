@@ -9,9 +9,11 @@ import AppKit
 final class InMemoryUserDefaults: UserDefaults, @unchecked Sendable {
     private let lock = NSLock()
     private var values: [String: Any]
+    private let didSetData: (@Sendable (String, Int) -> Void)?
 
-    init(values: [String: Any] = [:]) {
+    init(values: [String: Any] = [:], didSetData: (@Sendable (String, Int) -> Void)? = nil) {
         self.values = values
+        self.didSetData = didSetData
         super.init(suiteName: "InMemoryUserDefaults-\(UUID().uuidString)")!
     }
 
@@ -21,6 +23,7 @@ final class InMemoryUserDefaults: UserDefaults, @unchecked Sendable {
 
     override func set(_ value: Any?, forKey defaultName: String) {
         self.lock.withLock { self.values[defaultName] = value }
+        if let data = value as? Data { self.didSetData?(defaultName, data.count) }
     }
 
     override func removeObject(forKey defaultName: String) {
