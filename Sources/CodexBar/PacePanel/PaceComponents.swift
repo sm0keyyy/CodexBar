@@ -276,6 +276,7 @@ struct PaceDailyBars: View {
     let days: [PaceDayStack]
     let providers: [UsageProvider]
     var preferredCurrencyCode = "USD"
+    var providerCurrencyCode = "USD"
 
     var body: some View {
         GeometryReader { geometry in
@@ -328,7 +329,7 @@ struct PaceDailyBars: View {
                 let name = ProviderDescriptorRegistry.descriptor(for: provider).metadata.displayName
                 if let usd = day.costsUSD[provider] {
                     let value = UsageFormatter.convertedCostString(
-                        usd, preferredCurrency: self.preferredCurrencyCode, providerCurrency: "USD")
+                        usd, preferredCurrency: self.preferredCurrencyCode, providerCurrency: self.providerCurrencyCode)
                     return name + " " + value
                 }
                 return day.unpricedProviders.contains(provider) ? name + " " + L("pace_unpriced") : nil
@@ -391,8 +392,8 @@ struct PaceFooter: View {
     private func button(_ title: String, shortcut: String? = nil, action: MenuDescriptor.MenuAction) -> some View {
         Button { self.onAction(action) } label: {
             HStack(spacing: 3) {
-                Text(title)
-                if let shortcut { Text(shortcut).foregroundStyle(.tertiary) }
+                Text(title).lineLimit(1).fixedSize()
+                if let shortcut { Text(shortcut).foregroundStyle(.tertiary).lineLimit(1).fixedSize() }
             }
             .font(.system(size: 12))
             .padding(.horizontal, 6)
