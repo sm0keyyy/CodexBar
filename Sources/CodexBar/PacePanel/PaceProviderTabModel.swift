@@ -261,14 +261,23 @@ struct PaceProviderTabModel {
             resetObservations: presentation.menuCard.ignoresObservedQuotaResetBoundaries ? [] : observations,
             now: input.now,
             calendar: input.calendar).first(where: \.isCurrent) else { return nil }
-        return UsageMenuCardView.Model.quotaWindowRow(
-            week: week,
-            cost: week.totalCostUSD.map {
-                UsageFormatter.convertedCostString(
-                    $0,
-                    preferredCurrency: input.preferredCurrencyCode,
-                    providerCurrency: snapshot.currencyCode)
-            } ?? "—", calendar: input.calendar)
+        let cost = week.totalCostUSD.map {
+            UsageFormatter.convertedCostString(
+                $0, preferredCurrency: input.preferredCurrencyCode, providerCurrency: snapshot.currencyCode)
+        }
+        let row = UsageMenuCardView.Model.quotaWindowRow(
+            week: week, cost: cost ?? "—", calendar: input.calendar)
+        guard let tokens = week.totalTokens else { return row }
+        return InlineUsageDashboardModel.QuotaWindow(
+            id: row.id,
+            title: row.title,
+            range: row.range,
+            value: L(
+                "pace_weekly_cost_tokens_format",
+                UsageMenuCardView.Model.quotaMetricValue(cost, complete: week.costIsComplete),
+                UsageMenuCardView.Model.quotaMetricValue(
+                    UsageFormatter.tokenCountString(tokens), complete: week.tokensAreComplete)),
+            note: row.note)
     }
 
     private static func filteredActions(context: PaceProviderTabContext?, provider: UsageProvider) -> [Action] {

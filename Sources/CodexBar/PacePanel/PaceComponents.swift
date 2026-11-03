@@ -325,7 +325,7 @@ struct PaceDailyBars: View {
                 .stroke(Color.primary.opacity(0.10), lineWidth: 0.5)
                 ForEach(Array(self.days.enumerated()), id: \.element.id) { index, day in
                     if self.days.count <= 7 || index == 0 || index == self.days.count - 1 {
-                        Text(day.date.formatted(.dateTime.day().locale(codexBarLocalizedLocale())))
+                        Text(self.axisLabel(for: day.date))
                             .position(x: step * (CGFloat(index) + 0.5), y: chartHeight + 9)
                     }
                     if !day.unpricedProviders.isEmpty {
@@ -338,6 +338,11 @@ struct PaceDailyBars: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(self.summary)
+    }
+
+    func axisLabel(for date: Date) -> String {
+        let format: Date.FormatStyle = self.days.count > 7 ? .dateTime.month(.abbreviated).day() : .dateTime.day()
+        return date.formatted(format.locale(codexBarLocalizedLocale()))
     }
 
     private var summary: String {
