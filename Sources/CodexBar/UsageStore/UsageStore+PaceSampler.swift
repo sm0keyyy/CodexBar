@@ -78,4 +78,60 @@ extension UsageStore {
         }
         return histories == existingHistories ? nil : histories
     }
+
+    nonisolated static func paceSamplerPersistenceBoundary(
+        histories: [PlanUtilizationSeriesHistory],
+        samples: [PlanUtilizationSeriesSample]) -> (completedHour: Bool, reset: Bool)
+    {
+        var completedHour = false
+        for sample in samples {
+            guard let previous = histories.first(where: {
+                $0.name == sample.name && $0.windowMinutes == sample.windowMinutes
+            })?.entries.last else {
+                if histories.contains(where: { $0.name == sample.name }) { return (completedHour, true) }
+                continue
+            }
+            if self.haveMeaningfullyDifferentResetBoundaries(previous.resetsAt, sample.entry.resetsAt) {
+                return (completedHour, true)
+            }
+            if self.planUtilizationHourBucket(for: previous.capturedAt)
+                != self.planUtilizationHourBucket(for: sample.entry.capturedAt)
+            {
+                completedHour = true
+            }
+        }
+        return (completedHour, false)
+    }
+
+    /// The live history already holds the one pending sample per window; no second buffer is needed.
+    nonisolated static func completedPaceSamplerSnapshot(
+        _ snapshot: [ProviderInstanceID: PlanUtilizationHistoryBuckets],
+        now: Date) -> [ProviderInstanceID: PlanUtilizationHistoryBuckets]
+    {
+        let hour = self.planUtilizationHourBucket(for: now)
+        func completed(_ histories: [PlanUtilizationSeriesHistory]) -> [PlanUtilizationSeriesHistory] {
+            histories.compactMap { history in
+                guard let last = history.entries.last,
+                      self.planUtilizationHourBucket(for: last.capturedAt) == hour
+                else { return history }
+                let entries = history.entries.dropLast()
+                guard !entries.isEmpty else { return nil }
+                return PlanUtilizationSeriesHistory(
+                    name: history.name, windowMinutes: history.windowMinutes, entries: Array(entries))
+            }
+        }
+        return snapshot.mapValues { buckets in
+            var buckets = buckets
+            buckets.unscoped = completed(buckets.unscoped)
+            buckets.accounts = buckets.accounts.mapValues(completed)
+            return buckets
+        }
+    }
+
+    func persistPlanUtilizationHistoryForTermination() -> Task<Void, Never>? {
+        guard self.planUtilizationHistoryLoaded, !self.planUtilizationHistory.isEmpty else { return nil }
+        let snapshot = self.planUtilizationHistory
+        let coordinator = self.planUtilizationPersistenceCoordinator
+        return Task { await coordinator.flush(snapshot) }
+    }
 }

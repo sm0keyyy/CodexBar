@@ -174,6 +174,53 @@ The bounds remain 1 entry per series per UTC hour bucket and at most 17,520 entr
 The sampler keeps the current per-provider JSON format under `~/Library/Application Support/com.steipete.codexbar/history/`.
 Account ownership and identity checks remain intact. The sampler does not reconstruct Grok history from before the build.
 
+History persistence runs only when an hour completes, a reset or cadence changes, reconciliation replaces a series, or the app quits.
+Refreshes still update the live canonical sample, including its capture time, without scheduling a disk write.
+An hourly save excludes the current hour. The live history itself holds that hour's one pending sample per window.
+Quit uses `applicationShouldTerminate` to await the utility persistence lane before AppKit exits.
+The coordinator retains its existing single pending snapshot only while a write is in flight; there is no timer or new sample buffer.
+The 17,520-entry cap and reset-segment peak selection stay unchanged.
+Provider JSON documents use atomic whole-document replacement, not append: appending bytes would make this format invalid.
+The existing byte comparison skips unchanged providers. Ownership migrations still use the existing immediate save paths.
+
+The deterministic I/O fixture uses 288 five-minute refreshes over 24 hours, isolated directories, and no provider or credential access.
+The pre-fix `bc7c3cac6` path wrote 288 times for both `grok.json` and `chatbox.json`, even with unchanged quota values.
+It wrote 373,536 bytes for unchanged values, 377,136 for changing values, and 377,034 with a mid-hour reset.
+An unchanged one-series document grows from 285 to 2,309 bytes; every write replaces the whole document.
+These are encoded payload bytes, not filesystem block or process-wide I/O counters.
+`PaceSamplerTests` records each successful atomic write and its byte count, verifies off-main-thread writes, and reloads each fixture.
+
+|Fixture file|`fork/next`, unchanged|Pace before, unchanged|Pace after, unchanged / changed / reset|
+|---|---|---|---|
+|`grok.json`, `chatbox.json` (each)|0 writes, 0 bytes with tracking off|288 writes, 373,536 bytes|24 / 24 / 25 writes; 31,128 / 31,428 / 32,781 bytes|
+|`claude.json` (one standard window)|288 writes, 355,968 bytes|Same timestamp-driven writer as `fork/next`|24 / 24 / 25 writes; 29,664 / 29,964 / 31,256 bytes|
+|Grok priced daily cache|No persisted file|No persisted file|No persisted file, 0 bytes|
+|UserDefaults reset-detector data for a newly sampled short-window provider|0 sets, 0 bytes|288 sets, 67,392 encoded bytes|0 sets, 0 bytes in all three scenarios|
+
+After the fix, unchanged Grok documents write 285 + 88 × (hour - 1) bytes per completed hour, for hours 1 through 24.
+Changed Grok documents write 286 + 89 × (hour - 1) bytes; the reset fixture adds one 1,353-byte write.
+The Claude fixture writes 61 fewer metadata bytes per document; its reset adds one 1,292-byte write.
+The final canonical sample is flushed on quit. The first 12 unchanged refreshes and same-hour restart refresh write zero bytes.
+The pre-fix regression produced 78 assertion failures over six cases; the fixed fixture checks exact byte totals and pending-sample bounds.
+
+The tests also compare the unchanged non-Pace path with `fork/next` and check restart behavior.
+
+Pace adds or changes the `history/<provider>.json` documents for measured windows.
+Codex and Claude already used those files in `fork/next`; Pace adds windows and bypasses the other providers' tracking gates.
+Generic reconciliation modifies those same documents. It does not append to a separate recorder file.
+`GrokDailyCostCache.daily`, its native session cache, and token republication are memory-only.
+S4 does not add a priced-daily disk cache or change the Pi/OMP fragment cache format or write seam.
+
+The capability bypass also exposed a detector-isolation defect for short-window providers without history support.
+The session detector persisted `lastObservedAt` on every refresh, even when quota values did not change.
+The synthetic Chatbox fixture emitted 288 UserDefaults sets of 234 bytes each in every scenario; the pre-fix test failed in all three.
+The fix restores the original history-capability gate around reset celebrations. Existing provider detectors retain their behavior.
+Pace's own canonical/reset-segment updater remains independent and records the post-reset peak with zero detector sets.
+These keys belong to the standard `com.steipete.codexbar` preferences domain (`Library/Preferences/com.steipete.codexbar.plist`).
+UserDefaults replaces domain content through cfprefsd rather than appending; physical plist size and write coalescing are OS-managed.
+The harness counts encoded detector payload bytes, not the physical domain-file bytes. It never opens the user's preferences.
+
+
 
 ## Daily cost and budget
 
@@ -293,9 +340,12 @@ Paths below are relative to `Sources/CodexBar`.
 | H11 | Same file :: `planUtilizationHistorySelection(for:account:)` :: same capability bypass, retain loaded-history and account-key guards | Account ownership |
 | H11 | Same file :: `planUtilizationHistorySelection(for:snapshotOverride:)` :: same capability bypass, retain loaded-history and snapshot-identity guards | Snapshot ownership |
 | H11 | Same file :: `recordPlanUtilizationHistorySample(...)` :: accept Pace mode in the capability guard. Create separate Pace samples after `postLimitResetCelebrationsIfNeeded`. Continue if either sample list has data | Detector isolation, T10-T12 |
+| H11 | Same file :: `recordPlanUtilizationHistorySample(...)` :: retain the original history capability around `postLimitResetCelebrationsIfNeeded`, independent of the Pace recording bypass | Unsupported short-window reset: canonical history retained, zero detector defaults bytes |
 | H11 | Same file :: `recordPlanUtilizationHistorySample(...)` :: append Pace samples after `reconcileGenericSessionEquivalentHistory`. Select `updatedPaceSamplerHistories` only in Pace mode, otherwise keep `updatedPlanUtilizationHistories` | Cadence transitions, hourly retention |
 | H11 | Same file :: `shouldRecordPlanUtilizationHistory(for:)` :: Pace mode OR the original capability and always-tracked/opt-in expression | Opt-in bypass only in Pace mode |
 | H11 | Same file :: `planUtilizationHourBucket(for:)` :: remove `private` for the sampler updater. Keep the formula unchanged | Shared hourly bucket |
+| H11 | Same file :: `recordPlanUtilizationHistorySample(...)` :: schedule Pace persistence only for hourly completion, a reset, or reconciliation. Save completed hours while the live history retains the current sample | `PaceSamplerTests`, 24-hour write and byte counters |
+| H16 | `CodexbarApp.swift` :: `applicationShouldTerminate(_:)` :: await `persistPlanUtilizationHistoryForTermination()` with config persistence and HTTP shutdown | Pending sample durability on quit and termination |
 | H12 | `Providers/Grok/UsageStore+GrokLocalSessions.swift` :: `grokLocalTokenSnapshot(from:historyDays:cache:)` :: install the weak cache republisher. Apply `GrokPricedDaily.applying(_:to:)` before the day filter and sum projected daily costs | `GrokPricedDailyTests`, `GroupedCostParityTests` |
 | H12 | Same file :: `republishGrokPricedTokenSnapshot(cache:)` :: publish the projected snapshot or confirmed-empty result after cache changes | Same-turn daily projection |
 | H13 | `Menu/PlanUtilizationHistoryChartMenuView.swift` :: `Model`, `Point`, `makeModel(history:provider:referenceDate:)` :: remove `private`, with no behavior change | `PaceProviderTabModelTests`, history chips |

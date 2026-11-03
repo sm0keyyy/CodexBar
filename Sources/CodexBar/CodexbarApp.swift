@@ -524,11 +524,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard !self.isWaitingForConfigPersistence else { return .terminateLater }
         let serverStop = self.settings?.httpServer.stopForTermination()
         let save = self.settings?.persistPendingConfigForTermination()
-        guard save != nil || serverStop != nil else { return .terminateNow }
+        let historySave = self.store?.persistPlanUtilizationHistoryForTermination()
+        guard save != nil || serverStop != nil || historySave != nil else { return .terminateNow }
         self.isWaitingForConfigPersistence = true
         Task.detached {
             await save?.value
             await serverStop?.value
+            await historySave?.value
             // NSApplication may be inside a modal loop entered from the main dispatch queue.
             // A MainActor task cannot reliably resume there; deliver the reply on that run loop.
             RunLoop.main.perform(inModes: [.default, .modalPanel]) {
