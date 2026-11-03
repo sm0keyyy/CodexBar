@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+@testable import CodexBar
 @testable import CodexBarCore
 
 struct ClaudeOAuthProfileIdentityTests {
@@ -113,6 +114,66 @@ struct ClaudeOAuthProfileIdentityTests {
             #expect(next.accountEmail == nil)
             #expect(next.primary?.usedPercent == 17)
         }
+    }
+
+    @MainActor
+    @Test(arguments: [false, true])
+    func `renewed credential profile continues the same account history`(includeAccountIdentity: Bool) async throws {
+        let store = UsageStorePlanUtilizationTests.makeStore()
+        let cache = ClaudeOAuthDisplayProfileCache()
+        let profile: @Sendable (String) async throws -> OAuthProfileResponse = { _ in
+            OAuthProfileResponse(emailAddress: "same-account@example.com", organizationUuid: "fixture-org")
+        }
+        var owners: [String] = []
+        for (index, token) in ["before-renewal", "after-renewal"].enumerated() {
+            _ = try await self.fetch(
+                includeAccountIdentity: includeAccountIdentity, cache: cache, token: token, profile: profile)
+            await cache.finishPendingForTesting()
+            let snapshot = try await self.fetch(
+                includeAccountIdentity: includeAccountIdentity, cache: cache, token: token, profile: profile)
+            let usage = ClaudeOAuthFetchStrategy._snapshotForTesting(from: snapshot)
+            try owners.append(#require(snapshot.oauthHistoryOwnerIdentifier))
+            if index == 1 {
+                await store.recordPlanUtilizationHistorySample(
+                    provider: .claude,
+                    snapshot: usage,
+                    claudeOAuthHistoryOwnerIdentifier: snapshot.oauthHistoryOwnerIdentifier,
+                    claudeOAuthKeychainCredentialUnavailable: true,
+                    isClaudeOAuthSample: true,
+                    now: Date(timeIntervalSince1970: 1_700_000_000 + 1800))
+                #expect(store.planUtilizationHistory[.claude]?.accounts.count == 1)
+            }
+            await store.recordPlanUtilizationHistorySample(
+                provider: .claude,
+                snapshot: usage,
+                claudeOAuthHistoryOwnerIdentifier: snapshot.oauthHistoryOwnerIdentifier,
+                claudeOAuthProfileIdentity: UsageStore.legacyClaudePlanUtilizationEmailAccountKey(snapshot: usage),
+                claudeOAuthKeychainCredentialUnavailable: true,
+                isClaudeOAuthSample: true,
+                now: Date(timeIntervalSince1970: 1_700_000_000 + Double(index * 3600)))
+        }
+        #expect(owners[0] != owners[1])
+        let buckets = try #require(store.planUtilizationHistory[.claude])
+        #expect(buckets.accounts.count == 1)
+        #expect(buckets.histories(for: buckets.preferredAccountKey).first?.entries.count == 2)
+        let encoded = try JSONEncoder().encode(UsageStore.loadClaudeOAuthAccountUuidMap(
+            from: store.settings.userDefaults))
+        let persisted = String(decoding: encoded, as: UTF8.self)
+        #expect(!persisted.contains("before-renewal"))
+        #expect(!persisted.contains("after-renewal"))
+        #expect(!persisted.contains("same-account@example.com"))
+        await store.recordPlanUtilizationHistorySample(
+            provider: .claude,
+            snapshot: UsageSnapshot(
+                primary: RateWindow(usedPercent: 20, windowMinutes: 300, resetsAt: nil, resetDescription: nil),
+                secondary: nil, updatedAt: Date()),
+            claudeOAuthHistoryOwnerIdentifier: owners[1],
+            claudeOAuthKeychainCredentialUnavailable: true,
+            isClaudeOAuthSample: true,
+            now: Date(timeIntervalSince1970: 1_700_000_000 + 7200))
+        let continued = try #require(store.planUtilizationHistory[.claude])
+        #expect(continued.accounts.count == 1)
+        #expect(continued.histories(for: continued.preferredAccountKey).first?.entries.count == 3)
     }
 
     private func fetch(

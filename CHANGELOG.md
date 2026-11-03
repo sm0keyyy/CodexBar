@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Claude: kept quota history continuous across OAuth token renewals and recovered compatible credential fragments once on load.
+
 - Grouped menu bar: use brand orange for Claude sessions and burnt orange for weekly quotas. Keep all provider fills below near-white.
 
 - Grouped menu bar: keep pills anchored with a fixed-width, tabular cost label. Show whole currency units from 100 and compact thousands from 10,000. Keep exact cents in the tooltip.

@@ -201,6 +201,7 @@ private struct ProviderHistoryDocument: Codable, Sendable {
     let unscoped: [PlanUtilizationSeriesHistory]
     let accounts: [String: [PlanUtilizationSeriesHistory]]
     let sessionEquivalentWindowPairIdentities: [String: String]
+    let claudeOAuthFragmentMigrationVersion: Int
 }
 
 struct PlanUtilizationHistoryStore: Sendable {
@@ -256,27 +257,41 @@ struct PlanUtilizationHistoryStore: Sendable {
                     continue
                 }
 
-                let payload = ProviderHistoryDocument(
-                    version: Self.providerSchemaVersion,
-                    preferredAccountKey: buckets.preferredAccountKey,
-                    unscoped: unscoped,
-                    accounts: accounts,
-                    sessionEquivalentWindowPairIdentities: buckets.sessionEquivalentWindowPairIdentities)
-                let data = try encoder.encode(payload)
-                if let existingData = try? Data(contentsOf: fileURL) {
-                    if existingData == data { continue }
-                    if coalescingPaceSamples, existingData.count == data.count,
-                       Self.hasSameHourlyContent(payload, persistedData: existingData)
-                    {
-                        continue
-                    }
-                }
-                try data.write(to: fileURL, options: Data.WritingOptions.atomic)
-                self.didWrite?(fileURL, data.count)
+                try self.saveProvider(
+                    buckets,
+                    to: fileURL,
+                    encoder: encoder,
+                    coalescingPaceSamples: coalescingPaceSamples)
             }
         } catch {
             // Best-effort persistence only.
         }
+    }
+
+    private func saveProvider(
+        _ buckets: PlanUtilizationHistoryBuckets,
+        to fileURL: URL,
+        encoder: JSONEncoder,
+        coalescingPaceSamples: Bool = false) throws
+    {
+        let payload = ProviderHistoryDocument(
+            version: Self.providerSchemaVersion,
+            preferredAccountKey: buckets.preferredAccountKey,
+            unscoped: Self.sortedHistories(buckets.unscoped),
+            accounts: Self.sortedAccounts(buckets.accounts),
+            sessionEquivalentWindowPairIdentities: buckets.sessionEquivalentWindowPairIdentities,
+            claudeOAuthFragmentMigrationVersion: 1)
+        let data = try encoder.encode(payload)
+        if let existingData = try? Data(contentsOf: fileURL) {
+            if existingData == data { return }
+            if coalescingPaceSamples, existingData.count == data.count,
+               Self.hasSameHourlyContent(payload, persistedData: existingData)
+            {
+                return
+            }
+        }
+        try data.write(to: fileURL, options: Data.WritingOptions.atomic)
+        self.didWrite?(fileURL, data.count)
     }
 
     private static func hasSameHourlyContent(_ payload: ProviderHistoryDocument, persistedData: Data) -> Bool {
@@ -286,6 +301,7 @@ struct PlanUtilizationHistoryStore: Sendable {
               payload.version == persisted.version,
               payload.preferredAccountKey == persisted.preferredAccountKey,
               payload.sessionEquivalentWindowPairIdentities == persisted.sessionEquivalentWindowPairIdentities,
+              payload.claudeOAuthFragmentMigrationVersion == persisted.claudeOAuthFragmentMigrationVersion,
               payload.accounts.count == persisted.accounts.count
         else { return false }
 
@@ -331,7 +347,16 @@ struct PlanUtilizationHistoryStore: Sendable {
                 continue
             }
 
-            output[instanceID] = Self.decodeProvider(decoded)
+            var buckets = Self.decodeProvider(decoded)
+            if instanceID == .claude, decoded.claudeOAuthFragmentMigrationVersion == 0 {
+                buckets.migrateClaudeOAuthFragments()
+                let encoder = JSONEncoder()
+                encoder.dateEncodingStrategy = .iso8601
+                encoder.outputFormatting = [.sortedKeys]
+                // The normal atomic writer is shared; only this provider is rewritten, once.
+                try? self.saveProvider(buckets, to: fileURL, encoder: encoder)
+            }
+            output[instanceID] = buckets
         }
 
         return output
@@ -392,6 +417,8 @@ extension ProviderHistoryDocument {
         self.sessionEquivalentWindowPairIdentities = try container.decodeIfPresent(
             [String: String].self,
             forKey: .sessionEquivalentWindowPairIdentities) ?? [:]
+        self.claudeOAuthFragmentMigrationVersion = try container.decodeIfPresent(
+            Int.self, forKey: .claudeOAuthFragmentMigrationVersion) ?? 0
     }
 }
 
