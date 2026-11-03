@@ -822,9 +822,8 @@ final class StatusItemController: NSObject, NSMenuDelegate, StatusItemControllin
     }
 
     private func attachMenus() {
-        if self.mergedMenu == nil {
-            self.mergedMenu = self.makeMenu()
-        }
+        if self.attachPacePanelIfActive() { return }
+        if self.mergedMenu == nil { self.mergedMenu = self.makeMenu() }
         if self.statusItem.menu !== self.mergedMenu {
             self.statusItem.menu = self.mergedMenu
         }
@@ -832,6 +831,7 @@ final class StatusItemController: NSObject, NSMenuDelegate, StatusItemControllin
     }
 
     private func attachMenus(fallback: UsageProvider? = nil) {
+        self.detachPacePanel()
         for provider in UsageProvider.allCases {
             // Only access/create the status item if it's actually needed
             let shouldHaveItem = self.isEnabled(provider) || fallback == provider
