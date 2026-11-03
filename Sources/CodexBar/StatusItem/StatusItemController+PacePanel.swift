@@ -54,7 +54,49 @@ extension StatusItemController {
     func makePacePanelContent() -> AnyView {
         _ = self.store.menuObservationToken
         _ = self.settings.menuObservationToken
-        return AnyView(Text("CodexBar").padding(16).codexBarLocalized())
+        _ = self.store.planUtilizationHistoryRevision
+        let input = self.makePacePanelInput(now: Date())
+        let model = PacePanelModel.make(input)
+        let selection = PacePanelTab.resolve(
+            providers: input.providers,
+            lastSelectedWasOverview: self.settings.mergedMenuLastSelectedWasOverview,
+            selectedProvider: self.settings.selectedMenuProvider?.firstPartyProvider)
+        let context = selection.provider.map { provider in
+            PaceProviderTabContext(
+                card: self.store.menuCardModel(for: provider),
+                menu: self.makeMenuDescriptor(provider: provider, includeContextualActions: true),
+                accountCount: provider == .codex ? self.settings.codexVisibleAccounts.count
+                    : self.settings.tokenAccounts(for: provider).count,
+                error: self.store.userFacingError(for: provider))
+        }
+        return AnyView(PacePanelRootView(
+            input: input,
+            model: model,
+            selection: selection,
+            providerContext: context,
+            onCommand: { [weak self] in self?.performPacePanelCommand($0) },
+            onAction: { [weak self] in self?.performPacePanelAction($0) }))
+    }
+
+    func makePacePanelInput(now: Date) -> PacePanelInput {
+        let providers = self.groupedProviders ?? []
+        var input = PacePanelInput(
+            providers: providers,
+            todayCostInputs: self.groupedCostInputs(now: now),
+            showUsed: self.settings.usageBarsShowUsed,
+            costEnabled: self.settings.costUsageEnabled,
+            preferredCurrencyCode: self.settings.preferredCurrencyCode,
+            dailyBudgetUSD: self.settings.menuBarGroupedDailyBudgetUSD,
+            now: now)
+        for provider in providers {
+            input.snapshots[provider] = self.store.snapshot(for: provider.instanceID)
+            input.histories[provider] = self.store.planUtilizationHistorySelection(
+                for: provider, readOnly: true).histories
+            if input.costEnabled {
+                input.tokenSnapshots[provider] = self.tokenSnapshotForCostHistorySubmenu(provider: provider)
+            }
+        }
+        return input
     }
 
     func performPacePanelCommand(_ command: PacePanelCommand) {
@@ -73,9 +115,11 @@ extension StatusItemController {
             self.selectPacePanelTab(at: index)
         case .previousTab, .nextTab:
             let providers = self.groupedProviders ?? []
-            let selected = self.settings.mergedMenuLastSelectedWasOverview ? 0
-                : (providers.firstIndex(of: self.settings.selectedMenuProvider?.firstPartyProvider ?? .codex)
-                    .map { $0 + 1 } ?? 0)
+            let selection = PacePanelTab.resolve(
+                providers: providers,
+                lastSelectedWasOverview: self.settings.mergedMenuLastSelectedWasOverview,
+                selectedProvider: self.settings.selectedMenuProvider?.firstPartyProvider)
+            let selected = selection.provider.flatMap { providers.firstIndex(of: $0) }.map { $0 + 1 } ?? 0
             let count = providers.count + 1
             self.selectPacePanelTab(at: (selected + (command == .nextTab ? 1 : count - 1)) % count)
         }
