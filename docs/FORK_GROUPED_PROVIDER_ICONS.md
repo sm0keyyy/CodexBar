@@ -182,6 +182,8 @@ The coordinator retains its existing single pending snapshot only while a write 
 The 17,520-entry cap and reset-segment peak selection stay unchanged.
 Provider JSON documents use atomic whole-document replacement, not append: appending bytes would make this format invalid.
 The existing byte comparison skips unchanged providers. Ownership migrations still use the existing immediate save paths.
+Pace also compares hourly content when equal-sized JSON differs, so a timestamp-only refresh cannot rewrite an already saved hour on quit.
+That comparison decodes on the existing utility worker and retains no new cache. Different-sized hourly additions bypass the decode.
 
 The deterministic I/O fixture uses 288 five-minute refreshes over 24 hours, isolated directories, and no provider or credential access.
 The pre-fix `bc7c3cac6` path wrote 288 times for both `grok.json` and `chatbox.json`, even with unchanged quota values.
@@ -210,6 +212,15 @@ Codex and Claude already used those files in `fork/next`; Pace adds windows and 
 Generic reconciliation modifies those same documents. It does not append to a separate recorder file.
 `GrokDailyCostCache.daily`, its native session cache, and token republication are memory-only.
 S4 does not add a priced-daily disk cache or change the Pi/OMP fragment cache format or write seam.
+
+The existing `widget-snapshot.json` writer retains its ordinary refresh/token-publication cadence and atomic full rewrite.
+S4's priced Grok fields increase that payload, but cache republication itself schedules no widget persist.
+The one-priced-day fixture writes 288 times in both modes: 543 bytes per unpriced write and 563 bytes per priced write.
+Totals are 156,384 and 162,144 bytes. The 20-byte increment is required priced data, not an added recorder write.
+The widget file still rewrites on ordinary refreshes with unchanged inputs; this existing behavior is unchanged from `fork/next`.
+`PaceSamplerTests` counts the existing save seam over 288 cycles in both modes.
+The CLI usage cache reads raw provider snapshots, not priced token publications, so S4 does not change its payload or writer.
+
 
 The capability bypass also exposed a detector-isolation defect for short-window providers without history support.
 The session detector persisted `lastObservedAt` on every refresh, even when quota values did not change.

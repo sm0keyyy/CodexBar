@@ -357,7 +357,8 @@ extension PaceSamplerTests {
             writes.record(bytes)
         }
         let first = self.makeStore(historyStore: historyStore)
-        let snapshot = UsageSnapshot(primary: self.window(), secondary: nil, updatedAt: self.now)
+        let snapshot = UsageSnapshot(
+            primary: self.window(remainingMinutes: 7020 + 0.25 / 60), secondary: nil, updatedAt: self.now)
         await first.recordPlanUtilizationHistorySample(provider: .grok, snapshot: snapshot, now: self.now)
         await first.persistPlanUtilizationHistoryForTermination()?.value
         let store = self.makeStore(historyStore: historyStore)
@@ -368,6 +369,8 @@ extension PaceSamplerTests {
         #expect(writes.bytes.count == 1)
         #expect(store.planUtilizationHistory(for: .grok).first?.entries.last?.capturedAt
             == self.now.addingTimeInterval(300))
+        await store.persistPlanUtilizationHistoryForTermination()?.value
+        #expect(writes.bytes.count == 1)
     }
 
     @Test func `cadence changes flush the previous pending window before starting another`() async throws {
@@ -420,6 +423,57 @@ extension PaceSamplerTests {
             #expect(entry?.usedPercent == 2)
             #expect(entry?.resetsAt == self.now.addingTimeInterval(7200))
         }
+    }
+
+    @Test(arguments: [false, true])
+    func `Grok priced republication adds no widget writes`(priced: Bool) async {
+        let store = self.makeStore()
+        let cache = GrokDailyCostCache()
+        let day = String(self.now.ISO8601Format().prefix(10))
+        let raw = CostUsageTokenSnapshot(
+            sessionTokens: 100,
+            sessionCostUSD: nil,
+            last30DaysTokens: 100,
+            last30DaysCostUSD: nil,
+            daily: [.init(
+                date: day,
+                inputTokens: 100,
+                outputTokens: 0,
+                totalTokens: 100,
+                costUSD: nil,
+                modelsUsed: nil,
+                modelBreakdowns: nil)],
+            updatedAt: self.now)
+        store.snapshots[.grok] = UsageSnapshot(
+            primary: self.window(), secondary: nil, costUsage: raw, updatedAt: self.now)
+        store.publishTokenSnapshot(raw, for: .grok)
+        _ = store.grokLocalTokenSnapshot(from: store.snapshot(for: .grok), historyDays: 30, cache: cache)
+        let daily = [CostUsageDailyReport.Entry(
+            date: day,
+            inputTokens: 100,
+            outputTokens: 0,
+            totalTokens: 100,
+            costUSD: 1.23,
+            modelsUsed: nil,
+            modelBreakdowns: nil)]
+        let writes = PaceHistoryWriteRecorder()
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        store._test_widgetSnapshotSaveOverride = { snapshot in
+            if let data = try? encoder.encode(snapshot) { writes.record(data.count) }
+        }
+        defer { store._test_widgetSnapshotSaveOverride = nil }
+        for _ in 0..<288 {
+            if priced { cache.daily = daily }
+            await store.widgetSnapshotPersistTask?.value
+            let before = writes.bytes.count
+            store.persistWidgetSnapshot(reason: "pace-io-fixture")
+            await store.widgetSnapshotPersistTask?.value
+            #expect(writes.bytes.count == before + 1)
+        }
+        #expect(writes.bytes.count == 288)
+        print("WidgetIO priced=\(priced) writes=\(writes.bytes.count) "
+            + "bytes=\(writes.bytes.reduce(0, +)) per_write=\(Set(writes.bytes).sorted())")
     }
 }
 

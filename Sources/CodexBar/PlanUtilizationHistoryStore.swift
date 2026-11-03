@@ -231,7 +231,10 @@ struct PlanUtilizationHistoryStore: Sendable {
         await Task.detached(priority: .utility) { self.load() }.value
     }
 
-    func save(_ providers: [ProviderInstanceID: PlanUtilizationHistoryBuckets]) {
+    func save(
+        _ providers: [ProviderInstanceID: PlanUtilizationHistoryBuckets],
+        coalescingPaceSamples: Bool = false)
+    {
         guard let directoryURL = self.directoryURL else { return }
         do {
             try FileManager.default.createDirectory(
@@ -260,10 +263,13 @@ struct PlanUtilizationHistoryStore: Sendable {
                     accounts: accounts,
                     sessionEquivalentWindowPairIdentities: buckets.sessionEquivalentWindowPairIdentities)
                 let data = try encoder.encode(payload)
-                if let existingData = try? Data(contentsOf: fileURL),
-                   existingData == data
-                {
-                    continue
+                if let existingData = try? Data(contentsOf: fileURL) {
+                    if existingData == data { continue }
+                    if coalescingPaceSamples, existingData.count == data.count,
+                       Self.hasSameHourlyContent(payload, persistedData: existingData)
+                    {
+                        continue
+                    }
                 }
                 try data.write(to: fileURL, options: Data.WritingOptions.atomic)
                 self.didWrite?(fileURL, data.count)
@@ -271,6 +277,37 @@ struct PlanUtilizationHistoryStore: Sendable {
         } catch {
             // Best-effort persistence only.
         }
+    }
+
+    private static func hasSameHourlyContent(_ payload: ProviderHistoryDocument, persistedData: Data) -> Bool {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        guard let persisted = try? decoder.decode(ProviderHistoryDocument.self, from: persistedData),
+              payload.version == persisted.version,
+              payload.preferredAccountKey == persisted.preferredAccountKey,
+              payload.sessionEquivalentWindowPairIdentities == persisted.sessionEquivalentWindowPairIdentities,
+              payload.accounts.count == persisted.accounts.count
+        else { return false }
+
+        func resetSecond(_ date: Date?) -> TimeInterval? {
+            date.map { floor($0.timeIntervalSince1970) }
+        }
+
+        func sameHistories(_ left: [PlanUtilizationSeriesHistory], _ right: [PlanUtilizationSeriesHistory]) -> Bool {
+            left.count == right.count && zip(left, right).allSatisfy { lhs, rhs in
+                lhs.name == rhs.name && lhs.windowMinutes == rhs.windowMinutes
+                    && lhs.entries.count == rhs.entries.count
+                    && zip(lhs.entries, rhs.entries).allSatisfy { lhs, rhs in
+                        lhs.usedPercent == rhs.usedPercent && resetSecond(lhs.resetsAt) == resetSecond(rhs.resetsAt)
+                            && UsageStore.planUtilizationHourBucket(for: lhs.capturedAt)
+                            == UsageStore.planUtilizationHourBucket(for: rhs.capturedAt)
+                    }
+            }
+        }
+        return sameHistories(payload.unscoped, persisted.unscoped)
+            && payload.accounts.allSatisfy { key, histories in
+                persisted.accounts[key].map { sameHistories(histories, $0) } ?? false
+            }
     }
 
     func load() -> [ProviderInstanceID: PlanUtilizationHistoryBuckets] {

@@ -132,6 +132,7 @@ extension UsageStore {
         guard self.planUtilizationHistoryLoaded, !self.planUtilizationHistory.isEmpty else { return nil }
         let snapshot = self.planUtilizationHistory
         let coordinator = self.planUtilizationPersistenceCoordinator
-        return Task { await coordinator.flush(snapshot) }
+        let coalescingPaceSamples = self.isPaceSamplerActive
+        return Task { await coordinator.flush(snapshot, coalescingPaceSamples: coalescingPaceSamples) }
     }
 }
