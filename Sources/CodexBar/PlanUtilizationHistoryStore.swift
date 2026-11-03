@@ -352,6 +352,7 @@ struct PlanUtilizationHistoryStore: Sendable {
             }
 
             var buckets = Self.decodeProvider(decoded)
+            // Provider-specific by design: Claude's legacy keys followed renewable credentials, not stable accounts.
             if instanceID == .claude, (decoded.claudeOAuthFragmentMigrationVersion ?? 0) == 0,
                buckets.accounts.keys.contains(where: { $0.hasPrefix("__claude_oauth__:") })
             {
