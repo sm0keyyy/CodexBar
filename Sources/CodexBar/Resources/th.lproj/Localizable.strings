@@ -2869,11 +2869,14 @@
 "pace_weekly_cost_tokens_format" = "%1$@ · %2$@ โทเค็น";
 "pace_partly_unpriced" = "บางส่วนยังไม่มีราคา";
 
-"pace_state_critical_format" = "%@: โควตาที่เหลือถึงเกณฑ์เตือนต่ำสุดแล้ว";
-"pace_state_no_data_format" = "%@: ไม่มีข้อมูลการใช้งาน";
-"pace_state_provider_down_format" = "%@: ผู้ให้บริการรายงานปัญหาการให้บริการ";
-"pace_state_refresh_failed_format" = "%@: อัปเดตการใช้งานไม่สำเร็จ";
-"pace_state_refreshing_format" = "%@: กำลังอัปเดตข้อมูลการใช้งาน";
-"pace_state_stale_format" = "%@: อัปเดตไม่สำเร็จ ข้อมูลล่าสุดเมื่อ %@ ที่แล้ว";
-"pace_state_warning_format" = "%@: โควตาที่เหลือถึงเกณฑ์เตือนแล้ว";
+"pace_state_no_data_format" = "%@: ไม่มีข้อมูลการใช้งาน วัดแล้ว 0 ช่วงเวลา";
+"pace_state_provider_down_format" = "%@: ผู้ให้บริการรายงานปัญหาบริการ %@";
+"pace_state_refresh_failed_format" = "%@: อัปเดตไม่ได้ %@";
+"pace_state_refreshing_format" = "%@: กำลังอัปเดต %@";
+"pace_state_warning_format" = "%@: %@ เหลือ %.0f%% ต่ำกว่าอัตราที่เหมาะสม %@ ระดับเตือน %d%%";
 "pace_open_settings" = "เปิดการตั้งค่า";
+"pace_state_capture_age_format" = "แสดงข้อมูลเมื่อ %@ ที่แล้ว";
+"pace_state_capture_unknown" = "ไม่มีเวลาที่บันทึกข้อมูล";
+"pace_state_error_format" = "%@: %@; %@";
+"pace_state_low_format" = "%@: %@ เหลือ %.0f%% เท่ากับหรือต่ำกว่าระดับเตือน %d%% ของคุณ";
+"pace_state_no_usage_shown" = "ไม่มีข้อมูลการใช้งานที่แสดง";

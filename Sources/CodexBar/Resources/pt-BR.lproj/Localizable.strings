@@ -2867,11 +2867,14 @@
 "pace_weekly_cost_tokens_format" = "%1$@ · %2$@ tokens de uso";
 "pace_partly_unpriced" = "parcialmente sem preço";
 
-"pace_state_critical_format" = "%@: a cota restante atingiu o menor limite de aviso";
-"pace_state_no_data_format" = "%@: dados de uso indisponíveis";
-"pace_state_provider_down_format" = "%@: o provedor relata um problema no serviço";
-"pace_state_refresh_failed_format" = "%@: falha ao atualizar o uso";
-"pace_state_refreshing_format" = "%@: atualizando os dados de uso";
-"pace_state_stale_format" = "%@: falha na atualização; últimos dados de %@ atrás";
-"pace_state_warning_format" = "%@: a cota restante atingiu um limite de aviso";
+"pace_state_no_data_format" = "%@: sem dados de uso; 0 janelas medidas";
+"pace_state_provider_down_format" = "%@: o provedor relata um problema no serviço; %@";
+"pace_state_refresh_failed_format" = "%@: não foi possível atualizar; %@";
+"pace_state_refreshing_format" = "%@: atualizando; %@";
+"pace_state_warning_format" = "%@: %@ tem %.0f%% restante, %@ atrás do ritmo; nível de aviso %d%%";
 "pace_open_settings" = "Abrir ajustes";
+"pace_state_capture_age_format" = "mostrando dados de %@ atrás";
+"pace_state_capture_unknown" = "horário da captura indisponível";
+"pace_state_error_format" = "%@: %@; %@";
+"pace_state_low_format" = "%@: %@ tem %.0f%% restante, no nível ou abaixo do seu aviso de %d%%";
+"pace_state_no_usage_shown" = "nenhum dado de uso exibido";

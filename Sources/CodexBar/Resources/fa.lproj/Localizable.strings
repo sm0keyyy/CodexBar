@@ -2871,11 +2871,14 @@
 "pace_weekly_cost_tokens_format" = "%1$@ · %2$@ توکن";
 "pace_partly_unpriced" = "بخشی بدون قیمت";
 
-"pace_state_critical_format" = "%@: سهمیهٔ باقی‌مانده به پایین‌ترین آستانهٔ هشدار رسید";
-"pace_state_no_data_format" = "%@: داده‌های مصرف در دسترس نیست";
-"pace_state_provider_down_format" = "%@: ارائه‌دهنده از مشکل سرویس خبر می‌دهد";
-"pace_state_refresh_failed_format" = "%@: به‌روزرسانی مصرف ناموفق بود";
-"pace_state_refreshing_format" = "%@: در حال به‌روزرسانی داده‌های مصرف";
-"pace_state_stale_format" = "%@: به‌روزرسانی ناموفق بود؛ آخرین داده‌ها مربوط به %@ پیش است";
-"pace_state_warning_format" = "%@: سهمیهٔ باقی‌مانده به آستانهٔ هشدار رسید";
+"pace_state_no_data_format" = "%@: دادهٔ مصرف موجود نیست؛ 0 بازه اندازه‌گیری شده";
+"pace_state_provider_down_format" = "%@: ارائه‌دهنده از مشکل سرویس خبر می‌دهد؛ %@";
+"pace_state_refresh_failed_format" = "%@: به‌روزرسانی ممکن نبود؛ %@";
+"pace_state_refreshing_format" = "%@: در حال به‌روزرسانی؛ %@";
+"pace_state_warning_format" = "%@: سهمیهٔ باقی‌مانده در %@ برابر %.0f%%، به میزان %@ عقب‌تر از آهنگ مصرف است؛ آستانهٔ هشدار %d%%";
 "pace_open_settings" = "باز کردن تنظیمات";
+"pace_state_capture_age_format" = "داده‌های %@ پیش نمایش داده می‌شود";
+"pace_state_capture_unknown" = "زمان ثبت در دسترس نیست";
+"pace_state_error_format" = "%@: %@; %@";
+"pace_state_low_format" = "%@: سهمیهٔ باقی‌مانده در %@ برابر %.0f%%، در آستانهٔ هشدار %d%% یا پایین‌تر است";
+"pace_state_no_usage_shown" = "دادهٔ مصرفی نمایش داده نمی‌شود";

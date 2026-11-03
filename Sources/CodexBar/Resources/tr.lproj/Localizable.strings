@@ -2870,11 +2870,14 @@
 "pace_weekly_cost_tokens_format" = "%1$@ · %2$@ belirteç";
 "pace_partly_unpriced" = "kısmen fiyatlandırılmamış";
 
-"pace_state_critical_format" = "%@: kalan kota en düşük uyarı eşiğine ulaştı";
-"pace_state_no_data_format" = "%@: kullanım verileri mevcut değil";
-"pace_state_provider_down_format" = "%@: sağlayıcı bir hizmet sorunu bildiriyor";
-"pace_state_refresh_failed_format" = "%@: kullanım yenilenemedi";
-"pace_state_refreshing_format" = "%@: kullanım verileri yenileniyor";
-"pace_state_stale_format" = "%@: yenileme başarısız; son veriler %@ önce alındı";
-"pace_state_warning_format" = "%@: kalan kota bir uyarı eşiğine ulaştı";
+"pace_state_no_data_format" = "%@: kullanım verisi yok; ölçülen dönem sayısı 0";
+"pace_state_provider_down_format" = "%@: sağlayıcı bir hizmet sorunu bildiriyor; %@";
+"pace_state_refresh_failed_format" = "%@: yenilenemedi; %@";
+"pace_state_refreshing_format" = "%@: yenileniyor; %@";
+"pace_state_warning_format" = "%@: %@ için %.0f%% kaldı, hedef hızın %@ gerisinde; uyarı düzeyi %d%%";
 "pace_open_settings" = "Ayarları aç";
+"pace_state_capture_age_format" = "%@ önceki veriler gösteriliyor";
+"pace_state_capture_unknown" = "kayıt zamanı bilinmiyor";
+"pace_state_error_format" = "%@: %@; %@";
+"pace_state_low_format" = "%@: %@ için %.0f%% kaldı, %d%% uyarı düzeyinizde veya altında";
+"pace_state_no_usage_shown" = "kullanım verisi gösterilmiyor";

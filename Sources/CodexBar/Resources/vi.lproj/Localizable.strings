@@ -2868,11 +2868,14 @@
 "pace_weekly_cost_tokens_format" = "%1$@ · %2$@ mã thông báo";
 "pace_partly_unpriced" = "một phần chưa định giá";
 
-"pace_state_critical_format" = "%@: hạn mức còn lại đã chạm ngưỡng cảnh báo thấp nhất";
-"pace_state_no_data_format" = "%@: không có dữ liệu sử dụng";
-"pace_state_provider_down_format" = "%@: nhà cung cấp báo cáo sự cố dịch vụ";
-"pace_state_refresh_failed_format" = "%@: cập nhật mức sử dụng thất bại";
-"pace_state_refreshing_format" = "%@: đang cập nhật dữ liệu sử dụng";
-"pace_state_stale_format" = "%@: cập nhật thất bại; dữ liệu gần nhất cách đây %@";
-"pace_state_warning_format" = "%@: hạn mức còn lại đã chạm ngưỡng cảnh báo";
+"pace_state_no_data_format" = "%@: không có dữ liệu sử dụng; 0 khoảng đã đo";
+"pace_state_provider_down_format" = "%@: nhà cung cấp báo cáo sự cố dịch vụ; %@";
+"pace_state_refresh_failed_format" = "%@: không thể cập nhật; %@";
+"pace_state_refreshing_format" = "%@: đang cập nhật; %@";
+"pace_state_warning_format" = "%@: %@ còn %.0f%%, thấp hơn tiến độ lý tưởng %@; mức cảnh báo %d%%";
 "pace_open_settings" = "Mở cài đặt";
+"pace_state_capture_age_format" = "đang hiển thị dữ liệu từ %@ trước";
+"pace_state_capture_unknown" = "không có thời gian ghi nhận";
+"pace_state_error_format" = "%@: %@; %@";
+"pace_state_low_format" = "%@: %@ còn %.0f%%, bằng hoặc dưới mức cảnh báo %d%% của bạn";
+"pace_state_no_usage_shown" = "không hiển thị dữ liệu sử dụng";

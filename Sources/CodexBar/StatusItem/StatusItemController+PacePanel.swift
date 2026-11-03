@@ -107,7 +107,7 @@ extension StatusItemController {
         }
         for provider in providers {
             input.snapshots[provider] = self.store.snapshot(for: provider.instanceID)
-            input.pillStates[provider] = self.groupedPillState(provider: provider)
+            input.pillStates[provider] = self.groupedPillState(provider: provider, now: now)
             input.histories[provider] = self.store.planUtilizationHistorySelection(
                 for: provider, readOnly: true).histories
             if input.costEnabled {

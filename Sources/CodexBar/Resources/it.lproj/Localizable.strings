@@ -2871,11 +2871,14 @@
 "pace_weekly_cost_tokens_format" = "%1$@ · %2$@ token";
 "pace_partly_unpriced" = "in parte senza prezzo";
 
-"pace_state_critical_format" = "%@: la quota rimanente ha raggiunto la soglia di avviso più bassa";
-"pace_state_no_data_format" = "%@: dati di utilizzo non disponibili";
-"pace_state_provider_down_format" = "%@: il fornitore segnala un problema del servizio";
-"pace_state_refresh_failed_format" = "%@: aggiornamento dell’utilizzo non riuscito";
-"pace_state_refreshing_format" = "%@: aggiornamento dei dati di utilizzo";
-"pace_state_stale_format" = "%@: aggiornamento non riuscito; ultimi dati di %@ fa";
-"pace_state_warning_format" = "%@: la quota rimanente ha raggiunto una soglia di avviso";
+"pace_state_no_data_format" = "%@: nessun dato di utilizzo; 0 finestre misurate";
+"pace_state_provider_down_format" = "%@: il fornitore segnala un problema del servizio; %@";
+"pace_state_refresh_failed_format" = "%@: aggiornamento non riuscito; %@";
+"pace_state_refreshing_format" = "%@: aggiornamento in corso; %@";
+"pace_state_warning_format" = "%@: %@ ha il %.0f%% rimanente, in ritardo di %@; soglia di avviso %d%%";
 "pace_open_settings" = "Apri impostazioni";
+"pace_state_capture_age_format" = "dati di %@ fa visualizzati";
+"pace_state_capture_unknown" = "ora di acquisizione non disponibile";
+"pace_state_error_format" = "%@: %@; %@";
+"pace_state_low_format" = "%@: %@ ha il %.0f%% rimanente, pari o inferiore alla soglia di avviso del %d%%";
+"pace_state_no_usage_shown" = "nessun dato di utilizzo visualizzato";

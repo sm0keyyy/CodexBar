@@ -2868,11 +2868,14 @@
 "pace_weekly_cost_tokens_format" = "%1$@ · %2$@ токенов";
 "pace_partly_unpriced" = "частично без цены";
 
-"pace_state_critical_format" = "%@: остаток квоты достиг нижнего порога предупреждения";
-"pace_state_no_data_format" = "%@: данные об использовании недоступны";
-"pace_state_provider_down_format" = "%@: поставщик сообщает о сбое сервиса";
-"pace_state_refresh_failed_format" = "%@: не удалось обновить данные об использовании";
-"pace_state_refreshing_format" = "%@: обновление данных об использовании";
-"pace_state_stale_format" = "%@: обновление не удалось; последние данные получены %@ назад";
-"pace_state_warning_format" = "%@: остаток квоты достиг порога предупреждения";
+"pace_state_no_data_format" = "%@: нет данных об использовании; измерено 0 окон";
+"pace_state_provider_down_format" = "%@: поставщик сообщает о сбое сервиса; %@";
+"pace_state_refresh_failed_format" = "%@: не удалось обновить; %@";
+"pace_state_refreshing_format" = "%@: обновление; %@";
+"pace_state_warning_format" = "%@: в %@ осталось %.0f%%, отставание от темпа на %@; порог предупреждения %d%%";
 "pace_open_settings" = "Открыть настройки";
+"pace_state_capture_age_format" = "показаны данные, полученные %@ назад";
+"pace_state_capture_unknown" = "время сбора данных неизвестно";
+"pace_state_error_format" = "%@: %@; %@";
+"pace_state_low_format" = "%@: в %@ осталось %.0f%%, на уровне вашего порога %d%% или ниже";
+"pace_state_no_usage_shown" = "данные об использовании не показаны";

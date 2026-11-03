@@ -2866,11 +2866,14 @@
 "pace_weekly_cost_tokens_format" = "%1$@ · %2$@ tokens de uso";
 "pace_partly_unpriced" = "parcialmente sen prezo";
 
-"pace_state_critical_format" = "%@: a cota restante alcanzou o limiar de aviso máis baixo";
-"pace_state_no_data_format" = "%@: os datos de uso non están dispoñibles";
-"pace_state_provider_down_format" = "%@: o provedor informa dun problema do servizo";
-"pace_state_refresh_failed_format" = "%@: fallou a actualización do uso";
-"pace_state_refreshing_format" = "%@: actualizando os datos de uso";
-"pace_state_stale_format" = "%@: fallou a actualización; últimos datos de hai %@";
-"pace_state_warning_format" = "%@: a cota restante alcanzou un limiar de aviso";
+"pace_state_no_data_format" = "%@: sen datos de uso; 0 xanelas medidas";
+"pace_state_provider_down_format" = "%@: o provedor informa dun problema do servizo; %@";
+"pace_state_refresh_failed_format" = "%@: non se puido actualizar; %@";
+"pace_state_refreshing_format" = "%@: actualizando; %@";
+"pace_state_warning_format" = "%@: %@ ten un %.0f%% restante, %@ por detrás do ritmo; nivel de aviso %d%%";
 "pace_open_settings" = "Abrir a configuración";
+"pace_state_capture_age_format" = "amósanse datos de hai %@";
+"pace_state_capture_unknown" = "hora de captura non dispoñible";
+"pace_state_error_format" = "%@: %@; %@";
+"pace_state_low_format" = "%@: %@ ten un %.0f%% restante, no nivel ou por debaixo do aviso do %d%%";
+"pace_state_no_usage_shown" = "non se amosan datos de uso";

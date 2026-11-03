@@ -81,12 +81,44 @@ struct GroupedProviderIconPlanTests {
         #expect(samePeriod.longest == alternative)
     }
 
-    @Test func `warning thresholds use worst active window without notification state`() {
-        #expect(GroupedTileWarning.level(windows: [(10, [0, 0])]) == .none)
-        #expect(GroupedTileWarning.level(windows: [(45, [50, 20])]) == .amber)
-        #expect(GroupedTileWarning.level(windows: [(15, [50, 20])]) == .red)
-        #expect(GroupedTileWarning.level(windows: [(19, [20])]) == .red)
-        #expect(GroupedTileWarning.level(windows: []) == .none)
-        #expect(GroupedTileWarning.level(windows: [(45, [50, 20]), (20, [50, 20])]) == .red)
+    @Test(arguments: [
+        (37.0, 20.0, [50, 20], false),
+        (37.0, 46.0, [50, 20], true),
+        (15.0, 5.0, [50, 20], true),
+        (20.0, 5.0, [50, 20], true),
+        (50.0, 50.0, [50, 20], false),
+        (37.0, 46.0, [60, 10], true),
+        (15.0, 5.0, [60, 10], false),
+        (10.0, 90.0, [0, 0], false),
+        (19.0, 5.0, [20], true),
+    ])
+    func `quota warnings use configured thresholds and actual window pace`(
+        remaining: Double, ideal: Double, thresholds: [Int], warns: Bool)
+    {
+        let now = Date(timeIntervalSince1970: 1_793_620_800)
+        let window = RateWindow(
+            usedPercent: 100 - remaining,
+            windowMinutes: 10080,
+            resetsAt: now.addingTimeInterval(604_800 * ideal / 100),
+            resetDescription: nil)
+        let detail = GroupedTileWarning.make(
+            window: window, provider: .codex, thresholds: thresholds, label: "Weekly", now: now)
+        #expect((detail != nil) == warns)
+        #expect(detail?.remainingPercent == (warns ? remaining : nil))
+        if remaining == 37, warns {
+            #expect(detail?.threshold == thresholds.max())
+            if case let .behind(deficit) = detail?.cause { #expect(abs(deficit - 9) < 0.001) }
+            else { Issue.record("Expected the actual 9 percent pace deficit") }
+        }
+    }
+
+    @Test func `missing pace metadata only permits the lower threshold warning`() {
+        let now = Date()
+        for (remaining, warns) in [(37.0, false), (15.0, true)] {
+            let window = RateWindow(
+                usedPercent: 100 - remaining, windowMinutes: nil, resetsAt: nil, resetDescription: nil)
+            #expect((GroupedTileWarning.make(
+                window: window, provider: .codex, thresholds: [50, 20], label: "Weekly", now: now) != nil) == warns)
+        }
     }
 }

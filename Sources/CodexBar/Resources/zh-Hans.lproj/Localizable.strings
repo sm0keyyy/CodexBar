@@ -2859,11 +2859,14 @@
 "pace_weekly_cost_tokens_format" = "%1$@ · %2$@词元";
 "pace_partly_unpriced" = "部分未定价";
 
-"pace_state_critical_format" = "%@: 剩余配额已达到最低警告阈值";
-"pace_state_no_data_format" = "%@: 使用量数据不可用";
-"pace_state_provider_down_format" = "%@: 提供商报告了服务问题";
-"pace_state_refresh_failed_format" = "%@: 使用量刷新失败";
-"pace_state_refreshing_format" = "%@: 正在刷新使用量数据";
-"pace_state_stale_format" = "%@: 刷新失败；上次数据为%@前";
-"pace_state_warning_format" = "%@: 剩余配额已达到警告阈值";
+"pace_state_no_data_format" = "%@: 无使用量数据；已测量0个时段";
+"pace_state_provider_down_format" = "%@: 提供商报告了服务问题；%@";
+"pace_state_refresh_failed_format" = "%@: 无法刷新；%@";
+"pace_state_refreshing_format" = "%@: 正在刷新；%@";
+"pace_state_warning_format" = "%@: %@剩余%.0f%%，比理想进度少%@；警告线为%d%%";
 "pace_open_settings" = "打开设置";
+"pace_state_capture_age_format" = "正在显示%@前的数据";
+"pace_state_capture_unknown" = "采集时间不可用";
+"pace_state_error_format" = "%@: %@; %@";
+"pace_state_low_format" = "%@: %@剩余%.0f%%，已达到或低于你的%d%%警告线";
+"pace_state_no_usage_shown" = "未显示使用量数据";

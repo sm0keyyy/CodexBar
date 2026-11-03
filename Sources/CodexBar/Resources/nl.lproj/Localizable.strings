@@ -2864,11 +2864,14 @@
 "pace_weekly_cost_tokens_format" = "%1$@ · %2$@ gebruikstokens";
 "pace_partly_unpriced" = "deels zonder prijs";
 
-"pace_state_critical_format" = "%@: resterend quotum heeft de laagste waarschuwingsdrempel bereikt";
-"pace_state_no_data_format" = "%@: gebruiksgegevens zijn niet beschikbaar";
-"pace_state_provider_down_format" = "%@: aanbieder meldt een serviceprobleem";
-"pace_state_refresh_failed_format" = "%@: vernieuwen van gebruik mislukt";
-"pace_state_refreshing_format" = "%@: gebruiksgegevens worden vernieuwd";
-"pace_state_stale_format" = "%@: vernieuwen mislukt; laatste gegevens van %@ geleden";
-"pace_state_warning_format" = "%@: resterend quotum heeft een waarschuwingsdrempel bereikt";
+"pace_state_no_data_format" = "%@: geen gebruiksgegevens; 0 gemeten vensters";
+"pace_state_provider_down_format" = "%@: aanbieder meldt een serviceprobleem; %@";
+"pace_state_refresh_failed_format" = "%@: vernieuwen mislukt; %@";
+"pace_state_refreshing_format" = "%@: vernieuwen; %@";
+"pace_state_warning_format" = "%@: %@ heeft %.0f%% over, %@ achter op schema; waarschuwingsgrens %d%%";
 "pace_open_settings" = "Instellingen openen";
+"pace_state_capture_age_format" = "gegevens van %@ geleden worden getoond";
+"pace_state_capture_unknown" = "vastlegtijd niet beschikbaar";
+"pace_state_error_format" = "%@: %@; %@";
+"pace_state_low_format" = "%@: %@ heeft %.0f%% over, op of onder uw waarschuwingsgrens van %d%%";
+"pace_state_no_usage_shown" = "geen gebruiksgegevens getoond";

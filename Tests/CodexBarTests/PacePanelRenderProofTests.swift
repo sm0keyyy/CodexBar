@@ -170,9 +170,17 @@ final class PacePanelRenderProofTests: XCTestCase {
         for hasWarnings in [false, true] {
             var input = self.fixture
             if hasWarnings {
-                input.pillStates[.codex] = .init(hasData: true, warning: .amber)
+                input.pillStates[.codex] = .init(
+                    hasData: true,
+                    warning: .init(remainingPercent: 37, threshold: 50, windowLabel: "Weekly", cause: .behind(9)))
                 input.pillStates[.claude] = .init(
                     hasData: true, stale: true, updatedAt: self.now.addingTimeInterval(-10800))
+                input.snapshots[.codex] = UsageSnapshot(
+                    primary: nil,
+                    secondary: .init(
+                        usedPercent: 63, windowMinutes: 10080,
+                        resetsAt: self.now.addingTimeInterval(604_800 * 0.46), resetDescription: nil),
+                    updatedAt: self.now)
             }
             XCTAssertEqual(PacePanelModel.make(input).warnings.count, hasWarnings ? 2 : 0)
             for (name, scheme, appearance) in [
