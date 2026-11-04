@@ -117,5 +117,6 @@ struct SettingsDefaultsState {
     var iCloudSyncShowFleetAccounts: Bool
     var iCloudSyncDeviceID: String
     var menuBarGroupsProviderIcons: Bool = false
+    var menuBarGroupedPriceVisible: Bool = true
     var menuBarGroupedDailyBudgetUSD: Double = 0
 }

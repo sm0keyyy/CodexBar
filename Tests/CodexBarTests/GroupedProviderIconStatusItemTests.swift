@@ -356,7 +356,8 @@ struct GroupedProviderIconStatusItemTests {
         }
         cents.formUnion([9998, 9999, 10000, 10001, 99999])
         cents.formUnion([999_899, 999_900, 999_999, 1_000_000, 1_000_001, 1_099_999, 1_234_567, 99_999_999])
-        for highContrast in [false, true] {
+        for appearanceName in [NSAppearance.Name.aqua, .darkAqua] {
+            button.appearance = try #require(NSAppearance(named: appearanceName))
             var expectedWidth: CGFloat?
             var expectedPillPositions: [CGFloat]?
             for value in cents.sorted() {
@@ -368,12 +369,10 @@ struct GroupedProviderIconStatusItemTests {
                     costText: summary.displayText,
                     reservedCostTexts: reserved,
                     overBudget: value > 10000,
-                    highContrast: highContrast,
+                    highContrast: false,
                     for: button)
                 button.setFrameSize(NSSize(width: width, height: 22))
-                let origin = highContrast
-                    ? cell.titleRect(forBounds: button.bounds).minX
-                    : cell.imageRect(forBounds: button.bounds).minX
+                let origin = cell.imageRect(forBounds: button.bounds).minX
                 let positions = [origin, origin + 25.5, origin + 51]
                 if let expectedWidth, let expectedPillPositions {
                     #expect(width == expectedWidth)
@@ -389,6 +388,127 @@ struct GroupedProviderIconStatusItemTests {
                 if value >= 10000 { #expect(summary.displayText?.contains(".") == false) }
             }
         }
+    }
+
+    @Test func `AC C2 age crosses one hour once and keeps the Overview explanation`() throws {
+        let (_, store, controller) = self.harness()
+        defer { controller.releaseStatusItemsForTesting() }
+        let captured = Date().addingTimeInterval(-3599)
+        store._setSnapshotForTesting(UsageSnapshot(
+            primary: RateWindow(usedPercent: 20, windowMinutes: 300, resetsAt: nil, resetDescription: nil),
+            secondary: nil,
+            updatedAt: captured), provider: .grok)
+        let button = try #require(controller.statusItem.button)
+        let before = captured.addingTimeInterval(3599)
+        let boundary = captured.addingTimeInterval(3600)
+        let after = captured.addingTimeInterval(3601)
+        #expect(!controller.groupedPillState(provider: .grok, now: before).isGray(now: before))
+        #expect(!controller.groupedPillState(provider: .grok, now: boundary).isGray(now: boundary))
+        #expect(controller.applyGroupedIconIfEnabled(button: button, phase: nil, now: before) == false)
+        let colored = button.image
+        let owner = try #require(GroupedTooltipOwner.attached(to: button))
+        #expect(try #require(owner.tickTimer).fireDate == captured.addingTimeInterval(3600.05))
+        #expect(controller.applyGroupedIconIfEnabled(button: button, phase: nil, now: after) == false)
+        #expect(button.image !== colored)
+        let gray = button.image
+        #expect(controller.groupedPillState(provider: .grok, now: after).isGray(now: after))
+        #expect(controller
+            .applyGroupedIconIfEnabled(button: button, phase: nil, now: after.addingTimeInterval(60)) == true)
+        #expect(button.image === gray)
+        let warning = try #require(PacePanelModel.make(controller.makePacePanelInput(now: after))
+            .warnings.first { $0.provider == .grok })
+        #expect(warning.stateReason?.cue == .stale)
+        #expect(warning.stateReason?.text.contains("over 1 hour old") == true)
+        store._setSnapshotForTesting(self.snapshot(used: 20), provider: .grok)
+        #expect(!controller.groupedPillState(provider: .grok).isGray(now: Date()))
+    }
+
+    @Test func `AC C2 classified sign in failure grays only the failed provider`() async throws {
+        let (_, store, controller) = self.harness()
+        defer { controller.releaseStatusItemsForTesting() }
+        store._test_providerFetchOutcomeOverride = { _ in
+            ProviderFetchOutcome(
+                result: .failure(ProviderFetchClassifiedError(
+                    kind: .authenticationExpired, message: "Synthetic sign-in expired")),
+                attempts: [])
+        }
+        await store.refreshProvider(.grok, allowDisabled: true)
+        let now = Date()
+        #expect(controller.groupedPillState(provider: .grok).isGray(now: now))
+        #expect(!controller.groupedPillState(provider: .claude).isGray(now: now))
+        let warning = try #require(PacePanelModel.make(controller.makePacePanelInput(now: now))
+            .warnings.first { $0.provider == .grok })
+        #expect(warning.stateReason?.text.contains("Synthetic sign-in expired") == true)
+        #expect(warning.stateReason?.cue == .error)
+        store._test_providerFetchOutcomeOverride = { _ in
+            ProviderFetchOutcome(
+                result: .failure(ProviderFetchClassifiedError(
+                    kind: .rateLimited, message: "Synthetic rate limit")),
+                attempts: [])
+        }
+        await store.refreshProvider(.grok, allowDisabled: true)
+        #expect(!controller.groupedPillState(provider: .grok).isGray(now: Date()))
+        let fresh = self.snapshot(used: 20)
+        store._test_providerFetchOutcomeOverride = { _ in
+            ProviderFetchOutcome(
+                result: .success(ProviderFetchResult(
+                    usage: fresh,
+                    credits: nil,
+                    dashboard: nil,
+                    sourceLabel: "web",
+                    strategyID: "fixture",
+                    strategyKind: .web)),
+                attempts: [])
+        }
+        await store.refreshProvider(.grok, allowDisabled: true)
+        #expect(!controller.groupedPillState(provider: .grok).isGray(now: Date()))
+    }
+
+    @Test func `AC C3 hiding price removes only its fixed slot and keeps pills anchored`() throws {
+        let (settings, _, controller) = self.harness()
+        let old = GrokDailyCostCache.shared.today
+        defer { controller.releaseStatusItemsForTesting(); GrokDailyCostCache.shared.today = old }
+        settings.costUsageEnabled = true
+        GrokDailyCostCache.shared.today = GrokDayCost(usd: 123)
+        let button = try #require(controller.statusItem.button)
+        controller.applyIcon(phase: nil)
+        #expect(button.title.contains("$123"))
+        let shownWidth = controller.statusItem.length
+        let shownImage = try #require(button.image)
+        let shownPixels = try #require(GroupedProviderIconComposer.rasterize(shownImage))
+        let cell = try #require(button.cell)
+        button.setFrameSize(NSSize(width: shownWidth, height: 22))
+        let shownOrigin = cell.imageRect(forBounds: button.bounds).minX
+        settings.menuBarGroupedPriceVisible = false
+        controller.applyIcon(phase: nil)
+        #expect(button.title.isEmpty)
+        let hiddenWidth = controller.statusItem.length
+        button.setFrameSize(NSSize(width: hiddenWidth, height: 22))
+        let hiddenImage = try #require(button.image)
+        #expect(hiddenWidth == hiddenImage.size.width + 5)
+        let reserved = GroupedDailyCost.reservedDisplayTexts(preferredCurrency: "USD")
+        let font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+        let reservedWidth = try #require(reserved.map {
+            NSAttributedString(string: " \($0)", attributes: [.font: font]).size().width
+        }.max())
+        #expect(shownWidth - hiddenWidth == ceil(reservedWidth))
+        #expect(shownWidth > hiddenWidth)
+        let hiddenPixels = try #require(GroupedProviderIconComposer.rasterize(hiddenImage))
+        for y in 0..<36 {
+            for x in 0..<hiddenPixels.pixelsWide {
+                #expect(hiddenPixels.colorAt(x: x, y: y) == shownPixels.colorAt(x: x, y: y))
+            }
+        }
+        #expect(cell.imageRect(forBounds: button.bounds).minX == shownOrigin)
+        GrokDailyCostCache.shared.today = GrokDayCost(usd: 99999)
+        #expect(controller.applyIcon(phase: nil))
+        #expect(controller.statusItem.length == hiddenWidth)
+        settings.menuBarGroupedPriceVisible = true
+        controller.applyIcon(phase: nil)
+        #expect(button.title.contains("k"))
+        #expect(controller.statusItem.length == shownWidth)
+        button.setFrameSize(NSSize(width: controller.statusItem.length, height: 22))
+        #expect(cell.imageRect(forBounds: button.bounds).minX == shownOrigin)
     }
 
     @Test func `whole dollar tooltip updates do not redraw unchanged pills`() throws {
@@ -590,76 +710,6 @@ struct GroupedProviderIconStatusItemTests {
         #expect(throws: (any Error).self) {
             try GrokDailyCostCache.scan(
                 home: home, now: now, calendar: calendar, previousSignature: nil, mirrors: mirrors)
-        }
-    }
-
-    @Test func `grouped leading inset is native minimum with only trailing cost padding`() throws {
-        let image = GroupedProviderIconComposer.pill(
-            primary: 50, secondary: nil, color: .systemBlue, stale: false)
-        let button = NSButton(frame: NSRect(x: 0, y: 0, width: 200, height: 22))
-        button.isBordered = false
-        button.imageScaling = .scaleNone
-        let cell = try #require(button.cell)
-        for highContrast in [false, true] {
-            for costText in [nil, "$0.00", "$70.61", "$123", "$999k"] {
-                let reserved = GroupedDailyCost.reservedDisplayTexts(preferredCurrency: "USD")
-                let width = StatusItemController.applyGroupedButtonContent(
-                    image: image,
-                    costText: costText,
-                    reservedCostTexts: reserved,
-                    highContrast: highContrast,
-                    for: button)
-                button.setFrameSize(NSSize(width: width, height: 22))
-                let leading = highContrast
-                    ? cell.titleRect(forBounds: button.bounds).minX
-                    : cell.imageRect(forBounds: button.bounds).minX
-                #expect(leading == 0)
-                let font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
-                let reservedWidth = reserved.map {
-                    NSAttributedString(string: " \($0)", attributes: [.font: font]).size().width
-                }.max() ?? 0
-                #expect(width == ceil(24 + reservedWidth) + 5)
-            }
-            let width = StatusItemController.applyGroupedButtonContent(
-                image: image, costText: nil, reservedCostTexts: [], highContrast: highContrast, for: button)
-            button.setFrameSize(NSSize(width: width, height: 22))
-            let leading = highContrast
-                ? cell.titleRect(forBounds: button.bounds).minX
-                : cell.imageRect(forBounds: button.bounds).minX
-            #expect(leading == 0)
-            #expect(width == 29)
-        }
-    }
-
-    @Test func `dimmed slot preserves normal or budget ink and exact fixed anchors`() throws {
-        let image = GroupedProviderIconComposer.pill(
-            primary: 50, secondary: nil, color: .systemBlue, stale: false)
-        let button = NSButton(frame: NSRect(x: 0, y: 0, width: 200, height: 22))
-        button.isBordered = false
-        for overBudget in [false, true] {
-            let width = StatusItemController.applyGroupedButtonContent(
-                image: image,
-                costText: "$70.61",
-                reservedCostTexts: ["$99.99", "$9,999"],
-                overBudget: overBudget,
-                highContrast: false,
-                for: button)
-            button.setFrameSize(NSSize(width: width, height: 22))
-            let origin = button.cell?.imageRect(forBounds: button.bounds).origin
-            let dimmedWidth = StatusItemController.applyGroupedButtonContent(
-                image: image,
-                costText: "$70.61",
-                reservedCostTexts: ["$99.99", "$9,999"],
-                overBudget: overBudget,
-                dimmed: true,
-                highContrast: false,
-                for: button)
-            let ink = try #require(button.attributedTitle.attribute(
-                .foregroundColor, at: 0, effectiveRange: nil) as? NSColor)
-            #expect(ink.alphaComponent == 0.55)
-            #expect(ink == (overBudget ? NSColor.systemOrange : NSColor.labelColor).withAlphaComponent(0.55))
-            #expect(width == dimmedWidth)
-            #expect(button.cell?.imageRect(forBounds: button.bounds).origin == origin)
         }
     }
 

@@ -86,10 +86,23 @@ struct GroupedPillState: Equatable {
     var stale = false
     var refreshing = false
     var warning: GroupedTileWarning.Detail?
-    var flash = false
     var updatedAt: Date?
     var failure: String?
     var providerStatus: ProviderStatusIndicator = .none
+    var authenticationFailed = false
+
+    func usageIsTooOld(now: Date) -> Bool {
+        self.hasData && self.updatedAt.map { now.timeIntervalSince($0) > 3600 } == true
+    }
+
+    func isGray(now: Date) -> Bool {
+        self.authenticationFailed || self.usageIsTooOld(now: now)
+    }
+
+    var staleDeadline: Date? {
+        guard self.hasData, !self.authenticationFailed, let updatedAt else { return nil }
+        return updatedAt.addingTimeInterval(3600.05)
+    }
 
     enum Cue: Equatable {
         case warning, error, stale, refreshing, noData
@@ -131,18 +144,23 @@ struct GroupedPillState: Equatable {
             return Reason(
                 text: L("pace_state_error_format", name, failure, self.captureDescription(now: now)),
                 cue: .error,
-                fix: .retry,
-                dashed: self.flash)
+                fix: .retry)
         }
         if self.providerStatus != .none, self.providerStatus != .unknown {
             return Reason(
                 text: L("pace_state_provider_down_format", name, self.captureDescription(now: now)),
                 cue: .error,
-                fix: .retry,
-                dashed: self.flash)
+                fix: .retry)
         }
         if !self.hasData {
             return Reason(text: L("pace_state_no_data_format", name), cue: .noData, fix: .settings)
+        }
+        if self.usageIsTooOld(now: now) {
+            return Reason(
+                text: L("pace_state_old_format", name, self.captureDescription(now: now)),
+                cue: .stale,
+                fix: .retry,
+                dashed: true)
         }
         if let warning {
             let text = switch warning.cause {
@@ -163,7 +181,7 @@ struct GroupedPillState: Equatable {
                         .locale(codexBarLocalizedLocale())),
                     warning.threshold)
             }
-            return Reason(text: text, cue: .warning, fix: nil, dashed: self.flash)
+            return Reason(text: text, cue: .warning, fix: nil)
         }
         if self.stale {
             return Reason(

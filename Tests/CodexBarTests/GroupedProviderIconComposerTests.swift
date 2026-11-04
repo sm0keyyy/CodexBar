@@ -183,12 +183,12 @@ struct GroupedProviderIconComposerTests {
         try print("GROUPED_PILL_WEEKLY_WIDTH_METRICS \(#require(String(bytes: json, encoding: .utf8)))")
     }
 
-    @Test func `state cues never change opaque orange fills or their contrast`() throws {
+    @Test func `state cues preserve opaque fills and stale pills lose their provider color`() throws {
         let accent = ProviderDescriptorRegistry.descriptor(for: .claude).branding.color
         let color = NSColor(srgbRed: accent.red, green: accent.green, blue: accent.blue, alpha: 1)
         for appearanceName in [NSAppearance.Name.aqua, .darkAqua] {
             let appearance = try #require(NSAppearance(named: appearanceName))
-            for state in 0..<6 {
+            for state in 0..<5 {
                 var rendered: NSBitmapImageRep?
                 appearance.performAsCurrentDrawingAppearance {
                     rendered = GroupedProviderIconComposer.rasterize(GroupedProviderIconComposer.pill(
@@ -197,8 +197,7 @@ struct GroupedProviderIconComposerTests {
                         color: color,
                         stale: state == 1,
                         loading: state == 2,
-                        warning: state == 3 ? .amber : state >= 4 ? .red : .none,
-                        flash: state == 5))
+                        warning: state == 3 ? .amber : state >= 4 ? .red : .none))
                 }
                 let bitmap = try #require(rendered)
                 let week = try #require(bitmap.colorAt(x: 12, y: 20)?.usingColorSpace(.sRGB))
@@ -207,6 +206,14 @@ struct GroupedProviderIconComposerTests {
                 #expect(week.alphaComponent == 1)
                 #expect(session.alphaComponent == 1)
                 #expect(track.alphaComponent == 1)
+                if state == 1 {
+                    let sessionRGB = try #require(session.usingColorSpace(.sRGB))
+                    #expect(week.saturationComponent < 0.01)
+                    #expect(sessionRGB.saturationComponent < 0.01)
+                    #expect(abs(GroupedProviderIconComposer.lab(week).l
+                            - GroupedProviderIconComposer.lab(session).l) >= 20)
+                    continue
+                }
                 #expect(week.saturationComponent >= 0.5)
                 #expect(week.hueComponent < 0.1)
                 let weekLab = GroupedProviderIconComposer.lab(week)
@@ -282,7 +289,7 @@ struct GroupedProviderIconComposerTests {
         try print("GROUPED_PILL_COLOR_METRICS \(#require(String(bytes: json, encoding: .utf8)))")
     }
 
-    @Test(arguments: [false, true], 0..<6)
+    @Test(arguments: [false, true], 0..<5)
     func `all provider rendered fills avoid near white in every state`(split: Bool, state: Int) throws {
         for name in [NSAppearance.Name.aqua, .darkAqua] {
             let appearance = try #require(NSAppearance(named: name))
@@ -297,8 +304,7 @@ struct GroupedProviderIconComposerTests {
                         color: color,
                         stale: state == 1,
                         loading: state == 2,
-                        warning: state == 3 ? .amber : state >= 4 ? .red : .none,
-                        flash: state == 5))
+                        warning: state == 3 ? .amber : state >= 4 ? .red : .none))
                 }
                 let bitmap = try #require(rendered)
                 let session = try GroupedProviderIconComposer.lab(#require(bitmap.colorAt(x: 12, y: 16)))
@@ -371,7 +377,12 @@ struct GroupedProviderIconComposerTests {
             }
             let actual = try #require(ticked), baseline = try #require(plain)
             let changed = (1...46).filter { actual.colorAt(x: $0, y: 18) != baseline.colorAt(x: $0, y: 18) }
-            #expect(changed == (scale == 1 ? [14, 15] : Array(expected)))
+            if (showUsed ? used : 100 - used) >= percent {
+                #expect(changed == (scale == 1 ? [14, 15] : Array(expected)))
+            } else {
+                #expect(Set(expected).isSubset(of: Set(changed)))
+                #expect(changed.allSatisfy { (25...34).contains($0) })
+            }
             let column = scale == 1 ? 14 : expected.lowerBound
             #expect(actual.colorAt(x: column, y: 12) != baseline.colorAt(x: column, y: 12))
             #expect(actual.colorAt(x: column, y: 23) != baseline.colorAt(x: column, y: 23))
@@ -397,7 +408,7 @@ struct GroupedProviderIconComposerTests {
         #expect((1...46).filter { actual.colorAt(x: $0, y: 16) != baseline.colorAt(x: $0, y: 16) } == [35, 36])
         #expect((1...46).filter { actual.colorAt(x: $0, y: 20) != baseline.colorAt(x: $0, y: 20) } == [12, 13])
         let noData = try #require(GroupedProviderIconComposer.rasterize(GroupedProviderIconComposer.pill(
-            primary: nil, secondary: nil, color: .systemBlue, stale: true, loading: true, primaryTick: 50)))
+            primary: nil, secondary: nil, color: .systemBlue, stale: false, loading: true, primaryTick: 50)))
         let outline = try #require(GroupedProviderIconComposer.rasterize(GroupedProviderIconComposer.pill(
             primary: nil, secondary: nil, color: .systemBlue, stale: false)))
         for y in 0..<36 {
@@ -410,7 +421,7 @@ struct GroupedProviderIconComposerTests {
         #expect(GroupedProviderIconComposer.tickColumns(percent: .nan, backingScale: 2) == nil)
     }
 
-    @Test func `warnings use a solid one point stroke while refresh and stale keep full fills`() throws {
+    @Test func `warnings and refresh keep solid fills while stale replaces every colored cue`() throws {
         func render(stale: Bool = false, loading: Bool = false, warning: GroupedTileWarning.Level = .none)
             throws -> NSBitmapImageRep
         {
@@ -427,15 +438,84 @@ struct GroupedProviderIconComposerTests {
         let normal = try render()
         let stale = try render(stale: true)
         let refresh = try render(loading: true)
-        let warning = try render(stale: true, loading: true, warning: .red)
+        let warning = try render(loading: true, warning: .red)
         let solidWarning = try render(warning: .red)
         for x in 8...38 {
-            #expect(stale.colorAt(x: x, y: 16) == normal.colorAt(x: x, y: 16))
+            if x < 36 { #expect(stale.colorAt(x: x, y: 16) != normal.colorAt(x: x, y: 16)) }
             #expect(refresh.colorAt(x: x, y: 20) == normal.colorAt(x: x, y: 20))
             #expect(warning.colorAt(x: x, y: 9) == solidWarning.colorAt(x: x, y: 9))
         }
         #expect((12...35).allSatisfy { warning.colorAt(x: $0, y: 9) == warning.colorAt(x: 24, y: 9) })
         #expect(warning.colorAt(x: 24, y: 9) != normal.colorAt(x: 24, y: 9))
-        #expect((12...35).contains { stale.colorAt(x: $0, y: 8) != normal.colorAt(x: $0, y: 8) })
+        #expect((12...35).allSatisfy { stale.colorAt(x: $0, y: 8) == stale.colorAt(x: 24, y: 8) })
+    }
+
+    @Test(arguments: [false, true], [1.0, 2.0])
+    func `AC C1 hatching fills only the gap before the pace line`(split: Bool, scale: CGFloat) throws {
+        for name in [NSAppearance.Name.aqua, .darkAqua] {
+            let appearance = try #require(NSAppearance(named: name))
+            for usage in [20.0, 60, 80] {
+                var ticked: NSBitmapImageRep?
+                var plain: NSBitmapImageRep?
+                appearance.performAsCurrentDrawingAppearance {
+                    ticked = GroupedProviderIconComposer.rasterize(GroupedProviderIconComposer.pill(
+                        primary: usage,
+                        secondary: split ? usage : nil,
+                        color: .systemBlue,
+                        stale: false,
+                        primaryTick: 60,
+                        secondaryTick: split ? 60 : nil,
+                        backingScale: scale))
+                    plain = GroupedProviderIconComposer.rasterize(GroupedProviderIconComposer.pill(
+                        primary: usage, secondary: split ? usage : nil, color: .systemBlue, stale: false))
+                }
+                let actual = try #require(ticked), baseline = try #require(plain)
+                for row in [16, 20] {
+                    let gap = (12...25).filter { actual.colorAt(x: $0, y: row) != baseline.colorAt(x: $0, y: row) }
+                    #expect(gap.isEmpty == (usage >= 60))
+                    if usage < 60 { #expect(gap.count < 14) }
+                    for x in 3...8 {
+                        #expect(actual.colorAt(x: x, y: row) == baseline.colorAt(x: x, y: row))
+                    }
+                    for x in 32...44 {
+                        #expect(actual.colorAt(x: x, y: row) == baseline.colorAt(x: x, y: row))
+                    }
+                }
+            }
+        }
+    }
+
+    @Test func `AC C2 gray includes hatch fill tick track and warning border in both appearances`() throws {
+        for name in [NSAppearance.Name.aqua, .darkAqua] {
+            let appearance = try #require(NSAppearance(named: name))
+            var rendered: NSBitmapImageRep?
+            appearance.performAsCurrentDrawingAppearance {
+                rendered = GroupedProviderIconComposer.rasterize(GroupedProviderIconComposer.pill(
+                    primary: 20,
+                    secondary: 30,
+                    color: .systemOrange,
+                    stale: true,
+                    loading: true,
+                    warning: .red,
+                    primaryTick: 60,
+                    secondaryTick: 70))
+            }
+            let bitmap = try #require(rendered)
+            for y in 0..<36 {
+                for x in 0..<48 {
+                    let pixel = try #require(bitmap.colorAt(x: x, y: y)?.usingColorSpace(.sRGB))
+                    guard pixel.alphaComponent > 0 else { continue }
+                    #expect(abs(pixel.redComponent - pixel.greenComponent) < 0.01)
+                    #expect(abs(pixel.greenComponent - pixel.blueComponent) < 0.01)
+                }
+            }
+            let track = try #require(bitmap.colorAt(x: 40, y: 20))
+            let tick = try #require(bitmap.colorAt(x: 32, y: 20))
+            let fill = try #require(bitmap.colorAt(x: 5, y: 20))
+            #expect(GroupedProviderIconComposer.deltaE(
+                GroupedProviderIconComposer.lab(tick), GroupedProviderIconComposer.lab(track)) >= 15)
+            #expect(GroupedProviderIconComposer.deltaE(
+                GroupedProviderIconComposer.lab(fill), GroupedProviderIconComposer.lab(track)) >= 15)
+        }
     }
 }

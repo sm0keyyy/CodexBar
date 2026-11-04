@@ -55,6 +55,7 @@ struct PacePanelLocalizationTests {
         "pace_state_low_format",
         "pace_state_no_data_format",
         "pace_state_no_usage_shown",
+        "pace_state_old_format",
         "pace_state_provider_down_format",
         "pace_state_refresh_failed_format",
         "pace_state_refreshing_format",

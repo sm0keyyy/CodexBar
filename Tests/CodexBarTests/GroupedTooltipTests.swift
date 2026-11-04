@@ -91,19 +91,13 @@ struct GroupedTooltipTests {
                 hasData: true,
                 warning: .init(remainingPercent: 15, threshold: 20, windowLabel: "Weekly", cause: .low)),
             "Codex: Weekly has 15% left, at or below your 20% warning level"),
-        (
-            .init(
-                hasData: true,
-                warning: .init(remainingPercent: 15, threshold: 20, windowLabel: "Weekly", cause: .low),
-                flash: true),
-            "Codex: Weekly has 15% left, at or below your 20% warning level"),
         (.init(hasData: true, stale: true), "Codex: couldn't refresh; capture time unavailable"),
         (
             .init(
                 hasData: true,
                 stale: true,
                 updatedAt: Date(timeIntervalSince1970: 1_793_610_000)),
-            "Codex: couldn't refresh; showing data from 3h ago"),
+            "Codex: usage is over 1 hour old; showing data from 3h ago"),
         (.init(failure: "Sign in required"), "Codex: Sign in required; no usage data shown"),
         (.init(failure: "Keychain access denied"), "Codex: Keychain access denied; no usage data shown"),
         (.init(failure: "Rate limited; retry later"), "Codex: Rate limited; retry later; no usage data shown"),
@@ -139,7 +133,6 @@ struct GroupedTooltipTests {
             stale: true,
             refreshing: true,
             warning: .init(remainingPercent: 37, threshold: 50, windowLabel: "Weekly", cause: .behind(9)),
-            flash: true,
             updatedAt: self.now)
         #expect(state.explanation(provider: .codex, now: self.now)
             == "Codex: Weekly has 37% left, behind pace by 9%; warning level 50%")
@@ -202,5 +195,19 @@ struct GroupedTooltipTests {
         #expect(!replacement.isValid)
         #expect(owner.tickTimer == nil)
         #expect(updates == 1)
+    }
+
+    @Test func `AC C2 one timer selects the earlier tick or stale deadline and retires expired deadlines`() throws {
+        let owner = GroupedTooltipOwner()
+        let stale = self.now.addingTimeInterval(60)
+        let tick = self.now.addingTimeInterval(180)
+        owner.scheduleTick(at: tick, staleDeadlines: [stale], now: self.now) {}
+        #expect(try #require(owner.tickTimer).fireDate == stale)
+        owner.scheduleTick(at: stale, staleDeadlines: [tick], now: self.now) {}
+        #expect(try #require(owner.tickTimer).fireDate == stale)
+        owner.scheduleTick(at: nil, staleDeadlines: [stale], now: self.now) {}
+        #expect(try #require(owner.tickTimer).fireDate == stale)
+        owner.scheduleTick(at: nil, staleDeadlines: [stale], now: stale.addingTimeInterval(1)) {}
+        #expect(owner.tickTimer == nil)
     }
 }

@@ -10,6 +10,7 @@ struct SettingsStoreGroupedIconTests {
         "grouped_icons_title",
         "grouped_icons_subtitle",
         "grouped_icons_cost_off_hint",
+        "grouped_icons_show_price",
         "grouped_icons_budget_title",
         "grouped_icons_budget_subtitle",
         "grouped_icons_tooltip_today",
@@ -28,22 +29,28 @@ struct SettingsStoreGroupedIconTests {
         let settings = testSettingsStore(suiteName: suite, userDefaults: defaults)
         #expect(!settings.menuBarGroupsProviderIcons)
         #expect(settings.menuBarGroupedDailyBudgetUSD == 0)
+        #expect(settings.menuBarGroupedPriceVisible)
+        settings.menuBarGroupedPriceVisible = false
         settings.menuBarGroupsProviderIcons = true
         settings.menuBarGroupedDailyBudgetUSD = 20
         let second = testSettingsStore(suiteName: suite, userDefaults: defaults)
         #expect(second.menuBarGroupsProviderIcons)
         #expect(second.menuBarGroupedDailyBudgetUSD == 20)
+        #expect(!second.menuBarGroupedPriceVisible)
+        second.menuBarGroupedPriceVisible = true
+        #expect(testSettingsStore(suiteName: suite, userDefaults: defaults).menuBarGroupedPriceVisible)
         second.menuBarGroupedDailyBudgetUSD = -1
         #expect(second.menuBarGroupedDailyBudgetUSD == 0)
         second.menuBarGroupedDailyBudgetUSD = .infinity
         #expect(second.menuBarGroupedDailyBudgetUSD == 0)
     }
 
-    @Test func `both keys invalidate menu observation`() {
+    @Test func `grouped keys invalidate menu observation`() {
         let settings = testSettingsStore(suiteName: "GroupedIconObservation")
         for update in [
             { settings.menuBarGroupsProviderIcons = true },
             { settings.menuBarGroupedDailyBudgetUSD = 10 },
+            { settings.menuBarGroupedPriceVisible = false },
         ] {
             let changed = OSAllocatedUnfairLock(initialState: false)
             withObservationTracking { _ = settings.menuObservationToken } onChange: {
@@ -61,6 +68,7 @@ struct SettingsStoreGroupedIconTests {
         let source = try String(contentsOf: url, encoding: .utf8)
         #expect(source.contains("_ = self.menuBarGroupsProviderIcons"))
         #expect(source.contains("_ = self.menuBarGroupedDailyBudgetUSD"))
+        #expect(source.contains("_ = self.menuBarGroupedPriceVisible"))
     }
 
     @Test func `all 23 catalogs expose the same grouped key set`() throws {

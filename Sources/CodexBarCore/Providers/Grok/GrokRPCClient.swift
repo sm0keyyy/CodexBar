@@ -200,6 +200,16 @@ public enum GrokRPCError: LocalizedError, Sendable {
     case malformed(String)
     case notAuthenticated
 
+    public var isSignInFailure: Bool {
+        switch self {
+        case .notAuthenticated: true
+        case let .requestFailed(message, _):
+            message.localizedCaseInsensitiveContains("authentication required")
+                || message.localizedCaseInsensitiveContains("grok login")
+        default: false
+        }
+    }
+
     public var errorDescription: String? {
         switch self {
         case .binaryNotFound:
@@ -208,9 +218,7 @@ public enum GrokRPCError: LocalizedError, Sendable {
             return "Grok CLI failed to start: \(message)"
         case let .requestFailed(message, _):
             // Surface the auth-required hint that billing.rs emits verbatim.
-            if message.localizedCaseInsensitiveContains("authentication required")
-                || message.localizedCaseInsensitiveContains("grok login")
-            {
+            if self.isSignInFailure {
                 return "Grok billing requires authentication. Run `grok login`."
             }
             return "Grok request failed: \(message)"

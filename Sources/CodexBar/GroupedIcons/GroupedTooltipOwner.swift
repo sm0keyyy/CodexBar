@@ -66,7 +66,13 @@ final class GroupedTooltipOwner: NSObject {
         self.hoverTimer = nil
     }
 
-    func scheduleTick(at date: Date?, now: Date, update: @escaping @MainActor () -> Void) {
+    func scheduleTick(
+        at tickDate: Date?, staleDeadlines: [Date] = [], now: Date, update: @escaping @MainActor () -> Void)
+    {
+        var date = tickDate
+        for deadline in staleDeadlines where deadline > now {
+            date = min(date ?? deadline, deadline)
+        }
         if self.tickTimer?.fireDate == date { return }
         self.tickTimer?.invalidate()
         self.tickTimer = nil

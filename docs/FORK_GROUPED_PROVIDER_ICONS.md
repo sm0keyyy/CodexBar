@@ -24,9 +24,10 @@ The weekly fill keeps the exact provider brand color, including Claude.
 The session fill derives from that color: lighter and less saturated when feasible, otherwise darker and less saturated.
 Tests require absolute CIELAB lightness separation of at least 20 and CIEDE2000 distance of at least 15 for every palette color.
 They check Aqua and Dark Aqua appearances and require both fill-to-track CIEDE2000 distances to be at least 15.
-Stale, refreshing, highlighted, inactive-display, and quota-warning states never replace or fade either fill.
-Stale and refresh-with-data states use a dashed outline. No data uses a solid outline without a fill or tick.
-Quota warnings color the outline amber; errors use red. A warning flash changes the stroke, not the usage pixels.
+Refreshing, highlighted, inactive-display, and quota-warning states retain the provider fills.
+Authentication failure or measured usage older than one hour grays the fill, hatch, tick, track, and border.
+These gray pills have a solid outline. Refresh with valid data keeps its dashed outline.
+No data uses an outline without an invented fill or tick. Quota warnings use amber; other errors use red.
 Every pill remains non-template and its interior pixels remain opaque, including on inactive displays.
 The 111-provider palette run checks both appearances (222 measurements).
 Its minimum absolute ΔL* is 20.9828, minimum fill ΔE2000 is 23.0995, and minimum fill-to-track ΔE2000 is 21.0304.
@@ -36,7 +37,7 @@ ElevenLabs, Windsurf, Codebuff, Hugging Face, and Vercel use the approved darker
 Equal-duration alternatives retain the authoritative primary/secondary windows instead of replacing the weekly value with an appended model-specific quota.
 The weekly-62% regression measures 28 solid filled pixels across a 46-pixel inner width, within one device pixel of 62%.
 Empty tracks maximize their minimum CIEDE2000 distance from both fills over five neutral candidates.
-The grey-state defect came from the grouped controller selecting a template mask for stale/highlight/contrast states.
+Before the 2026-11-03 gray-state ruling, a defect came from the grouped controller selecting a template mask.
 That mask used one fill for both halves; the compositor also multiplied stale alpha by 0.45.
 State regression tests check both appearances, final composition, full alpha, and Claude's rendered orange hue/saturation.
 The real-status-bar proof also retained orange at 95% session / 62% weekly in ready, stale, refreshing,
@@ -123,24 +124,35 @@ Text rounds half away from zero, as `ahead +17%` or `behind −9%`. Rounded zero
 Durations up to 1,440 minutes use the session class. Longer durations use the weekly class and weekly warning thresholds.
 A Grok window with a `Weekly` label and no duration uses 10,080 minutes.
 A missing reset, unresolved duration, synthetic placeholder, or time outside the window gives no tick or pace text.
+If a lane's fill ends before its ideal tick, diagonal hatching fills only that gap. At or past the tick, no hatch is drawn.
+The hatch uses that lane's fill color, or its neutral gray equivalent. It does not move independently.
 
 |State|Fill and tick|Outline|
 |---|---|---|
 |Normal|Usage fill and ideal tick|0.5 pt solid|
-|Refresh with data or stale|Full-opacity fill and tick|0.5 pt dashed|
-|Quota warning|Full-opacity fill and tick|1 pt amber, with the existing warning flash|
+|Refresh with data|Full-opacity fill, hatch, and tick|0.5 pt dashed|
+|Authentication failure or usage over 1 hour old|Opaque gray fill, hatch, and tick|0.5 pt solid gray|
+|Quota warning|Full-opacity fill, hatch, and tick|1 pt amber, without flashing|
 |No data|No usage fill or tick|0.5 pt solid|
 |Over budget|Same fill and tick, orange cost text|Unchanged|
-|High contrast|Text only, no tick|None|
+|High contrast|Pills as a text attachment before the cost; no tick or hatch|Unchanged|
 
 The tick center is `0.5 + 23 * tickPercent / 100` pt.
 At 1×, the compositor floors the column and clamps it to 1...22.
 At 2×, it rounds the center and draws 2 columns, clamped to 1...46.
-One one-shot timer targets the next device-pixel move, with 10% tolerance. No tick means no tick timer.
-The render signature includes tick columns and the fill mode. The pill has no animation or per-minute timer.
+One one-shot timer targets the earlier of the next device-pixel move and the first pending one-hour stale deadline.
+No extra timer or polling loop is added; missing pace metadata still permits an age deadline.
+The existing tick cadence and tolerance stay unchanged. Passed stale deadlines are not scheduled again.
+The render signature includes gray state, tick columns, and the fill mode. Repeated age checks do not redraw unchanged pills.
 The compositor removes the outer image inset before the first pill. The cost slot keeps fixed width and position.
 During reload, the slot retains the last complete total of the same local day at 0.55 alpha.
 The panel reads that same `GroupedTooltipOwner.costSlot`, not a second retention cache.
+Settings > Menu Bar > Show total price in the menu bar defaults to on and persists.
+Turning it off removes the entire reserved price slot. The pills stay anchored; their spacing and width do not change.
+The tooltip and Overview still show costs when the price is hidden.
+Outside high contrast, pills and price share one fixed canvas. AppKit cannot recenter a pill relative to a changing title.
+The button retains the attributed cost title for accessibility, but draws only the canvas.
+High contrast keeps the existing text-only button with the pills as an attachment.
 
 Tooltip lines name only the windows that the pill draws, with percent, pace, and reset countdown.
 The Today line has exact total and provider amounts. Budget, unpriced, and overflow lines remain.
@@ -154,6 +166,10 @@ Reasons name the window, remaining percentage, triggering threshold, and the pac
 Refresh and error reasons state the age of retained data, or explicitly say no usage data or capture time is available.
 Overview bars repeat amber, red, and dashed state cues. A normal outline adds no state message.
 Errors retain existing provider-facing sign-in, Keychain, and rate-limit messages instead of guessing authentication from text.
+Sign-in failures use accepted typed fetch outcomes, including native Claude, Codex, and Grok credential errors.
+Their gray cue and strip reason do not wait for the general consecutive-failure gate.
+The cue follows the existing provider-publication lifetime and clears on the next accepted non-authentication outcome.
+This does not change credential-notification classification or delivery.
 Provider service incidents also appear. Refreshes, stale captures, and unavailable usage each have a plain reason.
 The strip reads the existing store state and adds no timer or provider request.
 The AppKit tooltip-owner hover path remains unverified on a real status item.
@@ -348,9 +364,9 @@ Paths below are relative to `Sources/CodexBar`.
 
 | Hook | File :: function :: diff shape | Guard |
 | --- | --- | --- |
-| H1 | `Settings/SettingsStoreState.swift` :: `SettingsDefaultsState` :: append two defaulted fields | Settings defaults and persistence |
-| H2 | `Settings/SettingsStore.swift` :: `loadDefaultsState` :: append two initializer arguments | Settings defaults and persistence |
-| H3 | `Settings/SettingsStore+MenuObservation.swift` :: `menuObservationToken` :: read both keys after stacked bottom selection | S3 and settings observation |
+| H1 | `Settings/SettingsStoreState.swift` :: `SettingsDefaultsState` :: grouped icons, price visibility, and budget fields | Settings defaults and persistence |
+| H2 | `Settings/SettingsStore.swift` :: `loadDefaultsState` :: matching grouped initializer arguments | Settings defaults and persistence |
+| H3 | `Settings/SettingsStore+MenuObservation.swift` :: `menuObservationToken` :: read all three grouped settings after stacked bottom selection | Settings observation |
 | H4 | `StatusItem/StatusItemController+Animation.swift` :: `applyIcon(phase:bypassMergedMenuTrackingDeferral:)` :: grouped early return after the tracking guard, before `defer` | S1 |
 | H5 | `StatusItem/StatusItemController+Animation.swift` :: `blinkAmount`, `wiggleAmount`, `tiltAmount`, `loadingBlinkAmount`, `setButtonContent`, `loadingPercentEpsilon` :: remove `private` | S5 |
 | H6 | `StatusItem/StatusItemController+IconObservation.swift` :: `storeIconObservationSignature` :: grouped early return; `providerStoreIconObservationSignature` :: remove `private` | S2 |
@@ -426,6 +442,7 @@ Pace adds these suites:
 |`PaceProviderTabModelTests`|Filtered actions, account and error recovery, cost periods, model rows, history chips, and single/multiple burndowns|
 |`PaceProviderTabRenderProofTests`|Populated provider proofs and the 360 pt localized cost layout|
 |`PacePanelLocalizationTests`|Source/catalog key equality, duplicate keys, format parity, untranslated prose, and forbidden product text|
+|Grouped cue regressions|`GroupedProviderIconComposerTests` covers both hatch boundaries, split lanes, gray pixels, and both appearances. `GroupedProviderIconStatusItemTests` covers age boundaries, classified sign-in failure, unchanged-state render reuse, and price-slot geometry. `SettingsStoreGroupedIconTests` covers default/on/off persistence. `GroupedTooltipTests` covers the shared timer's earliest deadline.|
 
 The existing composer, daily-cost, status-item, Grok, and plan-utilization suites also guard Pace behavior.
 Run these focused gates for the grouped item and Pace:

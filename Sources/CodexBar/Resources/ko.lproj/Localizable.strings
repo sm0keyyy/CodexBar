@@ -2765,6 +2765,7 @@
 "grouped_icons_title" = "Show every provider";
 "grouped_icons_subtitle" = "Uniform provider pills with remaining usage and today's cost. Replaces the icon style, source, and layout above.";
 "grouped_icons_cost_off_hint" = "Turn on cost tracking to show today's cost.";
+"grouped_icons_show_price" = "Show total price in the menu bar";
 "grouped_icons_budget_title" = "Daily cost budget (USD)";
 "grouped_icons_budget_subtitle" = "The cost turns amber above this amount. Leave empty to turn it off.";
 "grouped_icons_tooltip_today" = "Today: %@";
@@ -2838,6 +2839,7 @@
 "pace_state_no_data_format" = "%@: 사용량 데이터 없음; 측정된 기간 0개";
 "pace_state_provider_down_format" = "%@: 제공업체가 서비스 문제를 보고함; %@";
 "pace_state_refresh_failed_format" = "%@: 새로 고칠 수 없음; %@";
+"pace_state_old_format" = "%@: 사용량 데이터가 1시간보다 오래됨; %@";
 "pace_state_refreshing_format" = "%@: 새로 고치는 중; %@";
 "pace_state_warning_format" = "%@: %@의 잔여량은 %.0f%%로, 목표 속도보다 %@ 부족함; 경고 기준 %d%%";
 "pace_open_settings" = "설정 열기";

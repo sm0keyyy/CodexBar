@@ -731,6 +731,7 @@ extension SettingsStore {
             iCloudSyncShowFleetAccounts: userDefaults.object(forKey: "iCloudSyncShowFleetAccounts") as? Bool ?? true,
             iCloudSyncDeviceID: iCloudSyncDeviceID,
             menuBarGroupsProviderIcons: userDefaults.bool(forKey: "menuBarGroupsProviderIcons"),
+            menuBarGroupedPriceVisible: userDefaults.object(forKey: "menuBarGroupedPriceVisible") as? Bool ?? true,
             menuBarGroupedDailyBudgetUSD: userDefaults.double(forKey: "menuBarGroupedDailyBudgetUSD"))
     }
 
