@@ -147,7 +147,7 @@ extension StatusItemController {
             updatedAt: snapshot?.updatedAt,
             failure: self.store.errors[provider.instanceID].flatMap { _ in
                 self.store.userFacingErrorPresentation(for: provider)?.message
-            } ?? authenticationFailure.map { L($0) },
+            } ?? authenticationFailure,
             providerStatus: self.store.statusIndicator(for: provider),
             authenticationFailed: authenticationFailure != nil)
     }
@@ -319,6 +319,7 @@ extension StatusItemController {
                 ? GroupedDailyCost.reservedDisplayTexts(preferredCurrency: self.settings.preferredCurrencyCode) : [],
             overBudget: overBudget,
             dimmed: dimmed,
+            highContrast: self.shouldUseHighContrastStatusItemContent,
             isDebugApp: Self.isDebugApp(bundleIdentifier: Bundle.main.bundleIdentifier),
             for: button)
         self.statusItem.length = width
@@ -330,6 +331,7 @@ extension StatusItemController {
         reservedCostTexts: [String],
         overBudget: Bool = false,
         dimmed: Bool = false,
+        highContrast: Bool,
         isDebugApp: Bool = false,
         for button: NSButton) -> CGFloat
     {
@@ -340,13 +342,26 @@ extension StatusItemController {
         let attributes: [NSAttributedString.Key: Any] = [
             .font: font, .foregroundColor: dimmed ? ink.withAlphaComponent(0.55) : ink,
         ]
-        let attributed = NSAttributedString(string: visibleTitle, attributes: attributes)
-        button.attributedTitle = attributed
         let reservedWidth = reservedCostTexts.map {
             NSAttributedString(
                 string: Self.buttonTitle($0, hasImage: true, isDebugApp: isDebugApp),
                 attributes: attributes).size().width
         }.max() ?? NSAttributedString(string: title, attributes: attributes).size().width
+        if highContrast {
+            let attributed = NSMutableAttributedString(
+                attributedString: Self.highContrastButtonTitle(image: image, title: visibleTitle))
+            if attributed.length > 1 {
+                attributed.addAttributes(attributes, range: NSRange(location: 1, length: attributed.length - 1))
+            }
+            button.attributedTitle = attributed
+            button.image = nil
+            button.imagePosition = .noImage
+            button.alignment = .left
+            button.lineBreakMode = .byClipping
+            return ceil(image.size.width + reservedWidth) + 5
+        }
+        let attributed = NSAttributedString(string: visibleTitle, attributes: attributes)
+        button.attributedTitle = attributed
         let canvasSize = NSSize(width: ceil(image.size.width + reservedWidth), height: image.size.height)
         let canvas = NSImage(size: canvasSize, flipped: false) { _ in
             image.draw(at: .zero, from: .zero, operation: .sourceOver, fraction: 1)

@@ -72,7 +72,6 @@ enum GroupedProviderIconComposer {
         stale: Bool,
         loading: Bool = false,
         warning: GroupedTileWarning.Level = .none,
-        flash: Bool = false,
         primaryTick: Double? = nil,
         secondaryTick: Double? = nil,
         backingScale: CGFloat = 2) -> NSImage
@@ -153,13 +152,13 @@ enum GroupedProviderIconComposer {
             case .red: .systemRed
             }
             (stale ? weekly : borderColor).setStroke()
-            let thick = !stale && (flash || (primary != nil && warning != .none))
-            let inset: CGFloat = thick && !flash ? 0.5 : 0.25
+            let thick = !stale && primary != nil && warning != .none
+            let inset: CGFloat = thick ? 0.5 : 0.25
             let border = NSBezierPath(
                 roundedRect: rect.insetBy(dx: inset, dy: inset), xRadius: 5 - inset, yRadius: 5 - inset)
             border.lineWidth = thick ? 1 : 0.5
-            if !stale, flash || (primary != nil && warning == .none && loading) {
-                border.setLineDash([1, 1], count: 2, phase: flash ? 1 : 0)
+            if !stale, primary != nil, warning == .none, loading {
+                border.setLineDash([1, 1], count: 2, phase: 0)
             }
             border.stroke()
             return true

@@ -188,7 +188,7 @@ struct GroupedProviderIconComposerTests {
         let color = NSColor(srgbRed: accent.red, green: accent.green, blue: accent.blue, alpha: 1)
         for appearanceName in [NSAppearance.Name.aqua, .darkAqua] {
             let appearance = try #require(NSAppearance(named: appearanceName))
-            for state in 0..<6 {
+            for state in 0..<5 {
                 var rendered: NSBitmapImageRep?
                 appearance.performAsCurrentDrawingAppearance {
                     rendered = GroupedProviderIconComposer.rasterize(GroupedProviderIconComposer.pill(
@@ -197,8 +197,7 @@ struct GroupedProviderIconComposerTests {
                         color: color,
                         stale: state == 1,
                         loading: state == 2,
-                        warning: state == 3 ? .amber : state >= 4 ? .red : .none,
-                        flash: state == 5))
+                        warning: state == 3 ? .amber : state >= 4 ? .red : .none))
                 }
                 let bitmap = try #require(rendered)
                 let week = try #require(bitmap.colorAt(x: 12, y: 20)?.usingColorSpace(.sRGB))
@@ -290,7 +289,7 @@ struct GroupedProviderIconComposerTests {
         try print("GROUPED_PILL_COLOR_METRICS \(#require(String(bytes: json, encoding: .utf8)))")
     }
 
-    @Test(arguments: [false, true], 0..<6)
+    @Test(arguments: [false, true], 0..<5)
     func `all provider rendered fills avoid near white in every state`(split: Bool, state: Int) throws {
         for name in [NSAppearance.Name.aqua, .darkAqua] {
             let appearance = try #require(NSAppearance(named: name))
@@ -305,8 +304,7 @@ struct GroupedProviderIconComposerTests {
                         color: color,
                         stale: state == 1,
                         loading: state == 2,
-                        warning: state == 3 ? .amber : state >= 4 ? .red : .none,
-                        flash: state == 5))
+                        warning: state == 3 ? .amber : state >= 4 ? .red : .none))
                 }
                 let bitmap = try #require(rendered)
                 let session = try GroupedProviderIconComposer.lab(#require(bitmap.colorAt(x: 12, y: 16)))
@@ -499,7 +497,6 @@ struct GroupedProviderIconComposerTests {
                     stale: true,
                     loading: true,
                     warning: .red,
-                    flash: true,
                     primaryTick: 60,
                     secondaryTick: 70))
             }

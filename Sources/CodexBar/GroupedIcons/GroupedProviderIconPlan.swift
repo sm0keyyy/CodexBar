@@ -86,7 +86,6 @@ struct GroupedPillState: Equatable {
     var stale = false
     var refreshing = false
     var warning: GroupedTileWarning.Detail?
-    var flash = false
     var updatedAt: Date?
     var failure: String?
     var providerStatus: ProviderStatusIndicator = .none
@@ -145,15 +144,13 @@ struct GroupedPillState: Equatable {
             return Reason(
                 text: L("pace_state_error_format", name, failure, self.captureDescription(now: now)),
                 cue: .error,
-                fix: .retry,
-                dashed: self.flash)
+                fix: .retry)
         }
         if self.providerStatus != .none, self.providerStatus != .unknown {
             return Reason(
                 text: L("pace_state_provider_down_format", name, self.captureDescription(now: now)),
                 cue: .error,
-                fix: .retry,
-                dashed: self.flash)
+                fix: .retry)
         }
         if !self.hasData {
             return Reason(text: L("pace_state_no_data_format", name), cue: .noData, fix: .settings)
@@ -184,7 +181,7 @@ struct GroupedPillState: Equatable {
                         .locale(codexBarLocalizedLocale())),
                     warning.threshold)
             }
-            return Reason(text: text, cue: .warning, fix: nil, dashed: self.flash)
+            return Reason(text: text, cue: .warning, fix: nil)
         }
         if self.stale {
             return Reason(

@@ -91,12 +91,6 @@ struct GroupedTooltipTests {
                 hasData: true,
                 warning: .init(remainingPercent: 15, threshold: 20, windowLabel: "Weekly", cause: .low)),
             "Codex: Weekly has 15% left, at or below your 20% warning level"),
-        (
-            .init(
-                hasData: true,
-                warning: .init(remainingPercent: 15, threshold: 20, windowLabel: "Weekly", cause: .low),
-                flash: true),
-            "Codex: Weekly has 15% left, at or below your 20% warning level"),
         (.init(hasData: true, stale: true), "Codex: couldn't refresh; capture time unavailable"),
         (
             .init(
@@ -139,7 +133,6 @@ struct GroupedTooltipTests {
             stale: true,
             refreshing: true,
             warning: .init(remainingPercent: 37, threshold: 50, windowLabel: "Weekly", cause: .behind(9)),
-            flash: true,
             updatedAt: self.now)
         #expect(state.explanation(provider: .codex, now: self.now)
             == "Codex: Weekly has 37% left, behind pace by 9%; warning level 50%")

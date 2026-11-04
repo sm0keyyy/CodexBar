@@ -135,7 +135,7 @@ The hatch uses that lane's fill color, or its neutral gray equivalent. It does n
 |Quota warning|Full-opacity fill, hatch, and tick|1 pt amber, without flashing|
 |No data|No usage fill or tick|0.5 pt solid|
 |Over budget|Same fill and tick, orange cost text|Unchanged|
-|High contrast|Same fill; no tick or hatch|Unchanged|
+|High contrast|Pills as a text attachment before the cost; no tick or hatch|Unchanged|
 
 The tick center is `0.5 + 23 * tickPercent / 100` pt.
 At 1×, the compositor floors the column and clamps it to 1...22.
@@ -150,8 +150,9 @@ The panel reads that same `GroupedTooltipOwner.costSlot`, not a second retention
 Settings > Menu Bar > Show total price in the menu bar defaults to on and persists.
 Turning it off removes the entire reserved price slot. The pills stay anchored; their spacing and width do not change.
 The tooltip and Overview still show costs when the price is hidden.
-Pills and price share one fixed canvas. AppKit cannot recenter a pill relative to a changing title.
+Outside high contrast, pills and price share one fixed canvas. AppKit cannot recenter a pill relative to a changing title.
 The button retains the attributed cost title for accessibility, but draws only the canvas.
+High contrast keeps the existing text-only button with the pills as an attachment.
 
 Tooltip lines name only the windows that the pill draws, with percent, pace, and reset countdown.
 The Today line has exact total and provider amounts. Budget, unpriced, and overflow lines remain.
