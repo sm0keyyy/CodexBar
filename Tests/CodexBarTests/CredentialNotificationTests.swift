@@ -90,6 +90,32 @@ struct CredentialNotificationTests {
         #expect(other.allSatisfy { !ProviderCredentialFailure.isAuthenticationFailure($0) })
     }
 
+    @Test func `menu bar sign in classification includes native credentials without changing notifications`() {
+        let signIn: [Error] = [
+            ClaudeStatusProbeError.authenticationFailed("Sign in required"),
+            ClaudeWebAPIFetcher.FetchError.unauthorized,
+            CodexOAuthCredentialsError.notFound,
+            GrokCredentialsError.missingTokens,
+            GrokRPCError.notAuthenticated,
+            GrokRPCError.requestFailed("authentication required", code: -32000),
+            GrokWebBillingError.missingCredentials,
+            GrokWebBillingError.requestFailed(401, ""),
+            GrokWebBillingError.rpcFailed(16, ""),
+            GrokWebBillingError.rpcFailed(7, "bad-credentials"),
+        ]
+        #expect(signIn.allSatisfy(ProviderCredentialFailure.isSignInFailure))
+        #expect(signIn.allSatisfy { !ProviderCredentialFailure.isAuthenticationFailure($0) })
+        let other: [Error] = [
+            GrokWebBillingError.requestFailed(429, "Sign in"),
+            GrokWebBillingError.rpcFailed(7, "insufficient scope"),
+            GrokRPCError.timeout(method: "usage"),
+            GrokRPCError.requestFailed("Token quota exhausted", code: -32000),
+            ClaudeStatusProbeError.parseFailed("Sign in"),
+            CodexOAuthCredentialsError.unreadable,
+        ]
+        #expect(other.allSatisfy { !ProviderCredentialFailure.isSignInFailure($0) })
+    }
+
     @Test(arguments: [false, true])
     func `ordinary and selected account outcomes share account-specific episodes`(selected: Bool) async {
         let settings = testSettingsStore(

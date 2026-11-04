@@ -43,6 +43,7 @@ extension UsageStore {
                   allowProviderAccountAuthFingerprintMismatch: snapshot != nil) != nil else { return }
         let owner = Self.codexSessionQuotaOwnerKey(for: Self.codexScopedRefreshGuard(for: account))
         // Provider-specific by design: this helper validates Codex visible-account ownership before publication.
+        self.recordAuthenticationOutcome(provider: .codex, result: outcome.result)
         self.handleCredentialOutcome(provider: .codex, account: owner?.rawValue ?? account.id, result: outcome.result)
     }
 

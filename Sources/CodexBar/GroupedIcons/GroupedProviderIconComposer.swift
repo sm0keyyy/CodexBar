@@ -63,6 +63,7 @@ enum GroupedProviderIconComposer {
 
     static let tileSize = NSSize(width: 24, height: 18)
     static let pillRect = NSRect(x: 0, y: 4, width: 24, height: 10)
+    static let grayInk = NSColor(srgbRed: 0.65, green: 0.65, blue: 0.65, alpha: 1)
 
     static func pill(
         primary: Double?,
@@ -76,7 +77,9 @@ enum GroupedProviderIconComposer {
         secondaryTick: Double? = nil,
         backingScale: CGFloat = 2) -> NSImage
     {
-        let (session, weekly) = self.fillColors(for: color, split: secondary != nil)
+        let (session, weekly) = self.fillColors(
+            for: stale ? self.grayInk : color,
+            split: secondary != nil)
         let track = self.trackColor(weekly: weekly, session: session)
         let rect = self.pillRect
         let fillRect = rect.insetBy(dx: 0.5, dy: 0)
@@ -109,18 +112,34 @@ enum GroupedProviderIconComposer {
             }
             NSGraphicsContext.saveGraphicsState()
             NSGraphicsContext.current?.shouldAntialias = false
-            NSColor.labelColor.setFill()
-            for (percent, lane) in [
-                (primary == nil ? nil : primaryTick, NSRect(
+            for (usage, percent, ink, lane) in [
+                (primary, primaryTick, secondary == nil ? weekly : session, NSRect(
                     x: rect.minX,
                     y: secondary == nil ? rect.minY : rect.midY + 0.25,
                     width: rect.width,
                     height: secondary == nil ? rect.height : halfHeight)),
-                (secondary == nil ? nil : secondaryTick, NSRect(
+                (secondary, secondaryTick, weekly, NSRect(
                     x: rect.minX, y: rect.minY, width: rect.width, height: halfHeight)),
             ] {
-                guard let percent, let columns = Self.tickColumns(percent: percent, backingScale: backingScale)
+                guard let usage, let percent,
+                      let columns = Self.tickColumns(percent: percent, backingScale: backingScale)
                 else { continue }
+                let tickX = CGFloat(columns.lowerBound) / backingScale
+                let barEnd = fillRect.minX + fillRect.width * fraction(usage)
+                if usage < percent, barEnd < tickX {
+                    NSGraphicsContext.saveGraphicsState()
+                    NSRect(x: barEnd, y: lane.minY, width: tickX - barEnd, height: lane.height).clip()
+                    ink.setStroke()
+                    let hatch = NSBezierPath()
+                    hatch.lineWidth = 0.5
+                    for x in stride(from: barEnd - lane.height, through: tickX, by: 2) {
+                        hatch.move(to: NSPoint(x: x, y: lane.minY))
+                        hatch.line(to: NSPoint(x: x + lane.height, y: lane.maxY))
+                    }
+                    hatch.stroke()
+                    NSGraphicsContext.restoreGraphicsState()
+                }
+                (stale ? Self.grayInk : .labelColor).setFill()
                 NSRect(
                     x: CGFloat(columns.lowerBound) / backingScale,
                     y: lane.minY,
@@ -133,13 +152,13 @@ enum GroupedProviderIconComposer {
             case .amber: .systemOrange
             case .red: .systemRed
             }
-            borderColor.setStroke()
-            let thick = flash || (primary != nil && warning != .none)
+            (stale ? weekly : borderColor).setStroke()
+            let thick = !stale && (flash || (primary != nil && warning != .none))
             let inset: CGFloat = thick && !flash ? 0.5 : 0.25
             let border = NSBezierPath(
                 roundedRect: rect.insetBy(dx: inset, dy: inset), xRadius: 5 - inset, yRadius: 5 - inset)
             border.lineWidth = thick ? 1 : 0.5
-            if flash || (primary != nil && warning == .none && (stale || loading)) {
+            if !stale, flash || (primary != nil && warning == .none && loading) {
                 border.setLineDash([1, 1], count: 2, phase: flash ? 1 : 0)
             }
             border.stroke()

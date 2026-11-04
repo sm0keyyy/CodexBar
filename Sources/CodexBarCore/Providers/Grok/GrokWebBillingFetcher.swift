@@ -102,6 +102,15 @@ public enum GrokWebBillingError: LocalizedError, Sendable {
     case teamUsageUnsupported
     case parseFailed
 
+    public var isSignInFailure: Bool {
+        switch self {
+        case .missingCredentials: true
+        case let .requestFailed(status, _): status == 401 || status == 403
+        case let .rpcFailed(status, message): Self.isAuthenticationFailure(status: status, message: message)
+        default: false
+        }
+    }
+
     public var errorDescription: String? {
         switch self {
         case .missingCredentials:

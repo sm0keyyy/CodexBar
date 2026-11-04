@@ -2797,6 +2797,7 @@
 "grouped_icons_title" = "Show every provider";
 "grouped_icons_subtitle" = "Uniform provider pills with remaining usage and today's cost. Replaces the icon style, source, and layout above.";
 "grouped_icons_cost_off_hint" = "Turn on cost tracking to show today's cost.";
+"grouped_icons_show_price" = "Show total price in the menu bar";
 "grouped_icons_budget_title" = "Daily cost budget (USD)";
 "grouped_icons_budget_subtitle" = "The cost turns amber above this amount. Leave empty to turn it off.";
 "grouped_icons_tooltip_today" = "Today: %@";
@@ -2870,6 +2871,7 @@
 "pace_state_no_data_format" = "%@: 使用量データなし。計測済みの期間は0件です";
 "pace_state_provider_down_format" = "%@: プロバイダーがサービスの問題を報告。%@";
 "pace_state_refresh_failed_format" = "%@: 更新できませんでした。%@";
+"pace_state_old_format" = "%@: 使用データは1時間以上前のものです。%@";
 "pace_state_refreshing_format" = "%@: 更新中。%@";
 "pace_state_warning_format" = "%@: %@の残りは%.0f%%で、理想のペースより%@不足しています。警告しきい値%d%%";
 "pace_open_settings" = "設定を開く";

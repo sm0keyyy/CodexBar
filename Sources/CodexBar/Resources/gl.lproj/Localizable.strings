@@ -2796,6 +2796,7 @@
 "grouped_icons_title" = "Show every provider";
 "grouped_icons_subtitle" = "Uniform provider pills with remaining usage and today's cost. Replaces the icon style, source, and layout above.";
 "grouped_icons_cost_off_hint" = "Turn on cost tracking to show today's cost.";
+"grouped_icons_show_price" = "Show total price in the menu bar";
 "grouped_icons_budget_title" = "Daily cost budget (USD)";
 "grouped_icons_budget_subtitle" = "The cost turns amber above this amount. Leave empty to turn it off.";
 "grouped_icons_tooltip_today" = "Today: %@";
@@ -2869,6 +2870,7 @@
 "pace_state_no_data_format" = "%@: sen datos de uso; 0 xanelas medidas";
 "pace_state_provider_down_format" = "%@: o provedor informa dun problema do servizo; %@";
 "pace_state_refresh_failed_format" = "%@: non se puido actualizar; %@";
+"pace_state_old_format" = "%@: os datos de uso teñen máis dunha hora; %@";
 "pace_state_refreshing_format" = "%@: actualizando; %@";
 "pace_state_warning_format" = "%@: %@ ten un %.0f%% restante, %@ por detrás do ritmo; nivel de aviso %d%%";
 "pace_open_settings" = "Abrir a configuración";

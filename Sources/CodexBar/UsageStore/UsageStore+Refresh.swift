@@ -680,6 +680,7 @@ extension UsageStore {
             } else {
                 self.lastKnownResetSnapshots[provider.instanceID]
             }
+            self.recordAuthenticationOutcome(provider: provider, result: .success(result))
             // Resolve display-only allowances after any suspended request has completed.
             let allowanceCurrent = self.resolvingCurrentCopilotAllowance(in: accountScoped, provider: provider)
             let backfilled = self.preparePublishedSnapshot(
@@ -805,6 +806,7 @@ extension UsageStore {
         if provider == .deepseek {
             self.markDeepSeekProfileTransitionUnavailable()
         }
+        self.recordAuthenticationOutcome(provider: provider, result: .failure(error))
         self.handleCredentialOutcome(
             provider: provider,
             account: self.credentialAccount(provider: provider, context: context),

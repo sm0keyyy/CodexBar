@@ -10,6 +10,9 @@ struct GroupedProviderIconSettingsRows: View {
         }
         .disabled(!self.settings.mergeIcons)
 
+        Toggle(L("grouped_icons_show_price"), isOn: self.$settings.menuBarGroupedPriceVisible)
+            .disabled(!self.settings.mergeIcons || !self.settings.menuBarGroupsProviderIcons)
+
         if !self.settings.costUsageEnabled {
             Text(L("grouped_icons_cost_off_hint"))
                 .font(.caption)

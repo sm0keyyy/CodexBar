@@ -7,6 +7,7 @@ extension StatusItemController {
         let quota: GroupedProviderIconPlan.Quota
         let state: GroupedPillState
         let tint: NSColor
+        let gray: Bool
         let primaryTick: WindowPace.TickLane?
         let secondaryTick: WindowPace.TickLane?
 
@@ -17,9 +18,9 @@ extension StatusItemController {
                         percent: $0.pace.tickPercent(showUsed: $0.showUsed), backingScale: backingScale)
                 }.map(String.init(describing:)) ?? "nil"
             }
-            return "\(self.provider.rawValue),quota=\(self.quota.signature),stale=\(self.state.stale)"
-                + ",loading=\(self.state.refreshing),warning=\(self.state.outlineWarning.rawValue)"
-                + ",tint=\(self.tint),flash=\(self.state.flash)"
+            return "\(self.provider.rawValue),quota=\(self.quota.signature),gray=\(self.gray)"
+                + ",loading=\(!self.gray && self.state.refreshing)"
+                + ",warning=\(self.gray ? 0 : self.state.outlineWarning.rawValue),tint=\(self.tint)"
                 + ",ticks=\(columns.joined(separator: ","))"
         }
     }
@@ -32,7 +33,9 @@ extension StatusItemController {
             limit: SettingsStore.mergedOverviewProviderLimit)
     }
 
-    func applyGroupedIconIfEnabled(button: NSStatusBarButton, phase _: Double?) -> Bool? {
+    func applyGroupedIconIfEnabled(
+        button: NSStatusBarButton, phase _: Double?, now: Date = Date()) -> Bool?
+    {
         guard PaceMode.isActive(settings: self.settings, store: self.store),
               let providers = self.groupedProviders
         else {
@@ -45,7 +48,6 @@ extension StatusItemController {
             return nil
         }
         self.updateMenuBarSourceDescription(for: button, providers: providers)
-        let now = Date()
         let scale = button.window?.backingScaleFactor ?? 2
         let tiles = providers.map { self.groupedTile(provider: $0, now: now) }
         let owner = GroupedTooltipOwner.attach(to: button) { [weak self] in self?.groupedTooltip(now: Date()) }
@@ -53,6 +55,7 @@ extension StatusItemController {
         owner
             .scheduleTick(
                 at: WindowPace.nextTickPixelMove(ticks: ticks, backingScale: scale, now: now),
+                staleDeadlines: tiles.compactMap(\.state.staleDeadline),
                 now: now)
             { [weak self] in
                 guard let self, !self.hasPreparedForAppShutdown else { return }
@@ -69,12 +72,13 @@ extension StatusItemController {
             && slot.totalUSD.map { $0 > self.settings.menuBarGroupedDailyBudgetUSD } == true
         let signature = ([
             "mode=grouped",
-            "cost=\(slot.text ?? "nil")",
-            "dimmed=\(slot.dimmed)",
+            "cost=\(self.settings.menuBarGroupedPriceVisible ? slot.text ?? "nil" : "hidden")",
+            "dimmed=\(self.settings.menuBarGroupedPriceVisible && slot.dimmed)",
             "showUsed=\(self.settings.usageBarsShowUsed)",
             "budget=\(overBudget)",
             "currency=\(self.settings.preferredCurrencyCode)",
             "costEnabled=\(self.settings.costUsageEnabled)",
+            "priceVisible=\(self.settings.menuBarGroupedPriceVisible)",
             "appearance=\(button.effectiveAppearance.name.rawValue)",
             "contrast=\(self.shouldUseHighContrastStatusItemContent)",
             "scale=\(button.window?.backingScaleFactor ?? 2)",
@@ -120,11 +124,13 @@ extension StatusItemController {
                   let pace = WindowPace.make(window: window, provider: provider, now: now) else { return nil }
             return .init(pace: pace, resetsAt: reset, showUsed: self.settings.usageBarsShowUsed)
         }
+        let state = self.groupedPillState(provider: provider, now: now)
         return GroupedTile(
             provider: provider,
             quota: quota,
-            state: self.groupedPillState(provider: provider, now: now),
+            state: state,
             tint: tint,
+            gray: state.isGray(now: now),
             primaryTick: tick(quota.shortest),
             secondaryTick: tick(quota.longest))
     }
@@ -132,17 +138,18 @@ extension StatusItemController {
     func groupedPillState(provider: UsageProvider, now: Date = Date()) -> GroupedPillState {
         let snapshot = self.menuBarUsageSource(for: provider).snapshot
         let warning = self.groupedWarningDetail(provider: provider, now: now)
+        let authenticationFailure = self.store.authenticationFailure(for: provider)
         return GroupedPillState(
             hasData: GroupedProviderIconPlan.quota(snapshot: snapshot).shortest != nil,
             stale: self.menuBarIsStale(for: provider),
             refreshing: self.isRefreshingLocalMenuBarUsage(provider),
             warning: warning,
-            flash: warning != nil && self.quotaWarningFlashActive(provider: provider),
             updatedAt: snapshot?.updatedAt,
             failure: self.store.errors[provider.instanceID].flatMap { _ in
                 self.store.userFacingErrorPresentation(for: provider)?.message
-            },
-            providerStatus: self.store.statusIndicator(for: provider))
+            } ?? authenticationFailure.map { L($0) },
+            providerStatus: self.store.statusIndicator(for: provider),
+            authenticationFailed: authenticationFailure != nil)
     }
 
     private func renderGroupedTile(_ tile: GroupedTile, backingScale: CGFloat) -> NSImage {
@@ -151,10 +158,9 @@ extension StatusItemController {
             secondary: tile.quota.longest
                 .map { self.settings.usageBarsShowUsed ? $0.usedPercent : $0.remainingPercent },
             color: tile.tint,
-            stale: tile.state.stale,
+            stale: tile.gray,
             loading: !tile.state.hasData || tile.state.refreshing,
             warning: tile.state.outlineWarning,
-            flash: tile.state.flash,
             primaryTick: tile.primaryTick.map { $0.pace.tickPercent(showUsed: $0.showUsed) },
             secondaryTick: tile.secondaryTick.map { $0.pace.tickPercent(showUsed: $0.showUsed) },
             backingScale: backingScale)
@@ -288,6 +294,7 @@ extension StatusItemController {
             "day=\(Calendar.current.startOfDay(for: now).timeIntervalSince1970)",
             "budget=\(self.settings.menuBarGroupedDailyBudgetUSD)",
             "costEnabled=\(self.settings.costUsageEnabled)",
+            "priceVisible=\(self.settings.menuBarGroupedPriceVisible)",
             "showUsed=\(self.settings.usageBarsShowUsed)",
             "currency=\(self.settings.preferredCurrencyCode)",
         ] + providers.map {
@@ -296,7 +303,9 @@ extension StatusItemController {
                 + "quota=\(quota.signature)"
                 + "warning=\(self.groupedWarning(provider: $0).rawValue)"
                 + "resets=\([quota.shortest, quota.longest].map { String(describing: $0?.resetsAt) })"
+                + "gray=\(self.groupedPillState(provider: $0, now: now).isGray(now: now))"
                 + "durations=\([quota.shortest, quota.longest].map { String(describing: $0?.windowMinutes) })"
+                + "authentication=\(self.store.authenticationFailure(for: $0) ?? "nil")"
         }).joined(separator: "|")
     }
 
@@ -305,12 +314,11 @@ extension StatusItemController {
     {
         let width = Self.applyGroupedButtonContent(
             image: image,
-            costText: costText,
-            reservedCostTexts: self.settings.costUsageEnabled
+            costText: self.settings.menuBarGroupedPriceVisible ? costText : nil,
+            reservedCostTexts: self.settings.costUsageEnabled && self.settings.menuBarGroupedPriceVisible
                 ? GroupedDailyCost.reservedDisplayTexts(preferredCurrency: self.settings.preferredCurrencyCode) : [],
             overBudget: overBudget,
             dimmed: dimmed,
-            highContrast: self.shouldUseHighContrastStatusItemContent,
             isDebugApp: Self.isDebugApp(bundleIdentifier: Bundle.main.bundleIdentifier),
             for: button)
         self.statusItem.length = width
@@ -322,7 +330,6 @@ extension StatusItemController {
         reservedCostTexts: [String],
         overBudget: Bool = false,
         dimmed: Bool = false,
-        highContrast: Bool,
         isDebugApp: Bool = false,
         for button: NSButton) -> CGFloat
     {
@@ -333,24 +340,25 @@ extension StatusItemController {
         let attributes: [NSAttributedString.Key: Any] = [
             .font: font, .foregroundColor: dimmed ? ink.withAlphaComponent(0.55) : ink,
         ]
-        let attributed = highContrast
-            ? NSMutableAttributedString(attributedString: Self.highContrastButtonTitle(
-                image: image, title: visibleTitle))
-            : NSMutableAttributedString(string: visibleTitle, attributes: attributes)
-        if highContrast, attributed.length > 1 {
-            attributed.addAttributes(attributes, range: NSRange(location: 1, length: attributed.length - 1))
-        }
+        let attributed = NSAttributedString(string: visibleTitle, attributes: attributes)
         button.attributedTitle = attributed
-        button.image = highContrast ? nil : image
-        button.imagePosition = highContrast ? .noImage : .imageLeft
-        // Anchor the image at the leading edge, not the center of the changing title.
-        button.alignment = .left
-        button.lineBreakMode = .byClipping
         let reservedWidth = reservedCostTexts.map {
             NSAttributedString(
                 string: Self.buttonTitle($0, hasImage: true, isDebugApp: isDebugApp),
                 attributes: attributes).size().width
         }.max() ?? NSAttributedString(string: title, attributes: attributes).size().width
-        return ceil(image.size.width + reservedWidth) + 5
+        let canvasSize = NSSize(width: ceil(image.size.width + reservedWidth), height: image.size.height)
+        let canvas = NSImage(size: canvasSize, flipped: false) { _ in
+            image.draw(at: .zero, from: .zero, operation: .sourceOver, fraction: 1)
+            attributed.draw(at: NSPoint(
+                x: image.size.width, y: (canvasSize.height - attributed.size().height) / 2))
+            return true
+        }
+        canvas.isTemplate = false
+        // Status buttons hug an image/title pair even with fixed item width. One canvas keeps its anchor fixed.
+        button.image = canvas
+        button.imagePosition = .imageOnly
+        button.alignment = .left
+        return canvasSize.width + 5
     }
 }

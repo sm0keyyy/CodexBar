@@ -11,6 +11,7 @@ extension UsageStore {
     var menuObservationToken: Int {
         _ = self.snapshots
         _ = self.errors
+        _ = self.authenticationFailures
         _ = self.diagnostics
         _ = self.knownLimitsAvailabilityByProvider
         _ = self.lastSourceLabels
@@ -48,6 +49,7 @@ extension UsageStore {
         _ = self.claudeSwapAccountSnapshots
         _ = self.claudeSwapRevision
         _ = self.errors
+        _ = self.authenticationFailures
         _ = self.diagnostics
         _ = self.knownLimitsAvailabilityByProvider
         _ = self.credits
@@ -152,6 +154,7 @@ final class UsageStore {
 
     var snapshots: [ProviderInstanceID: UsageSnapshot] = [:]
     var errors: [ProviderInstanceID: String] = [:]
+    var authenticationFailures: [ProviderInstanceID: ProviderAuthenticationFailure] = [:]
     var diagnostics: [ProviderInstanceID: String] = [:]
     var geminiMigrationObservation: GeminiMigrationObservation = .none
     var knownLimitsAvailabilityByProvider: [ProviderInstanceID: UsageLimitsAvailability] = [:]

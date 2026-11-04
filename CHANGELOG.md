@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Grouped menu bar: hatch the gap before the pace line, gray pills after sign-in failure or one hour without fresh usage, and add a persistent setting to hide the fixed-width price slot.
+
 - Claude: kept quota history continuous across OAuth token renewals and recovered compatible credential fragments once on load.
 
 - Grouped menu bar: use brand orange for Claude sessions and burnt orange for weekly quotas. Keep all provider fills below near-white.

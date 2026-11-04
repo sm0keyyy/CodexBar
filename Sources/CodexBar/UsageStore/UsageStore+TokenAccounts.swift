@@ -1479,6 +1479,7 @@ extension UsageStore {
             return
         }
         self.lastFetchAttempts[provider.instanceID] = outcome.attempts
+        self.recordAuthenticationOutcome(provider: provider, result: outcome.result)
         self.handleCredentialOutcome(
             provider: provider,
             account: Self.warningTokenAccountDiscriminator(account) ?? "default",
